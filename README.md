@@ -10,8 +10,8 @@ passively, tells you what it actually observed, and separates **confirmed** prob
 ## Quick start
 
 ```bash
-git clone https://github.com/spaceayyat/ayyscanner.git
-cd ayyscanner
+git clone https://github.com/spaceayyat/AYYSCANNER.git
+cd AYYSCANNER
 python run.py
 ```
 
