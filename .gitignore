@@ -1,0 +1,23 @@
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+build/
+dist/
+
+# local configuration
+.env
+
+# reports written by the CLI
+ayyscanner-*.html
+ayyscanner-*.pdf
+
+# editors, OS, test caches
+.DS_Store
+.idea/
+.vscode/
+.pytest_cache/
+.coverage
+*.log
+scan*.json
+!examples/*.json

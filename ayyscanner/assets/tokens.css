@@ -1,0 +1,51 @@
+/* AYYSCANNER design tokens: the single source of truth for colour, type and
+   shape. Used by the web UI (server/static) and embedded in exported HTML
+   reports. Every colour is defined once with light-dark(), so Light, Dark and
+   System themes cannot drift apart. Requires Chrome/Edge 123+, Firefox 120+
+   or Safari 17.5+. */
+
+:root {
+  color-scheme: light dark; /* follow the OS unless data-theme overrides it */
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, Menlo, monospace;
+
+  /* surfaces */
+  --bg: light-dark(#f5f6f8, #0c0f13);
+  --surface: light-dark(#ffffff, #14181e);
+  --surface-2: light-dark(#eff1f4, #1a1f27);
+  --surface-3: light-dark(#e3e6eb, #232a35);
+  --border: light-dark(#dbdfe6, #262d38);
+  --border-strong: light-dark(#c2c8d2, #38414f);
+
+  /* text */
+  --text: light-dark(#14181f, #e8ebf0);
+  --text-muted: light-dark(#4f5a69, #9aa4b3);
+  --text-faint: light-dark(#66707e, #808b9b);
+
+  /* brand: red is used for the logo, primary actions, selection and small highlights */
+  --brand: light-dark(#c2202f, #f0505c);
+  --brand-solid: light-dark(#c2202f, #d42a39);
+  --brand-hover: light-dark(#a51a27, #e23a48);
+  --on-brand: #ffffff;
+  --brand-tint: color-mix(in srgb, var(--brand) 11%, transparent);
+
+  /* status colours */
+  --ok: light-dark(#13773a, #4cc477);
+  --warn: light-dark(#9a5b06, #f2b13c);
+  --danger: light-dark(#b42318, #ff7b6e);
+
+  /* severity (always paired with a text label, never colour alone) */
+  --sev-critical: light-dark(#9d1450, #ff6fa8);
+  --sev-high: light-dark(#c2261b, #ff7b6e);
+  --sev-medium: light-dark(#94560a, #f2b13c);
+  --sev-low: light-dark(#1a5bbd, #74acff);
+  --sev-info: light-dark(#4b5565, #a3adbc);
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 1px 2px light-dark(rgb(16 24 40 / 6%), rgb(0 0 0 / 40%));
+}
+
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }

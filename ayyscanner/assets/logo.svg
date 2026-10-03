@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="AYYSCANNER">
+  <g fill="none" stroke="#D7263D" stroke-width="6" stroke-linecap="butt" stroke-linejoin="miter">
+    <path d="M6 24V6h18M40 6h18v18M58 40v18H40M24 58H6V40"/>
+  </g>
+  <path fill="#D7263D" d="M32 19 45 32 32 45 19 32Z"/>
+  <path stroke="#D7263D" stroke-width="5" d="M32 9v7M32 48v7M9 32h7M48 32h7"/>
+</svg>

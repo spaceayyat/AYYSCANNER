@@ -1,0 +1,41 @@
+AYYSCANNER — Credits
+Creator
+
+AYYSCANNER was created, developed, and maintained by:
+
+Abdellah Ayyat
+
+All original code, design, architecture, and development of AYYSCANNER are the work of Abdellah Ayyat.
+
+About AYYSCANNER
+
+AYYSCANNER is a web security scanning and reconnaissance tool created for authorized security testing, defensive research, and educational purposes.
+
+Third-Party Software
+
+AYYSCANNER may use third-party libraries, tools, APIs, or other open-source components. Their respective authors and maintainers retain ownership of their original work and are credited according to their applicable licenses.
+
+Third-party dependencies should be documented in the project's dependency files and their respective license requirements must be respected.
+
+Responsible Use
+
+AYYSCANNER is intended to be used only against systems that you own or have explicit permission to test.
+
+Users are responsible for complying with all applicable laws, regulations, and authorization requirements.
+
+Disclaimer
+
+AYYSCANNER is provided for legitimate security research and authorized testing purposes. Abdellah Ayyat is not responsible for misuse of the software or for unauthorized activity conducted using it.
+
+Copyright
+
+Copyright © 2026 Abdellah Ayyat
+
+All rights reserved unless otherwise stated by the project's license or by the licenses of third-party components.
+
+AYYSCANNER
+Created by Abdellah Ayyat
+
+Contact
+
+Instagram: @spaceayyat (https://instagram.com/spaceayyat)

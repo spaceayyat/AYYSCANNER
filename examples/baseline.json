@@ -1,0 +1,40 @@
+{
+  "name": "Example organizational baseline",
+  "rules": [
+    {
+      "id": "BL-HTTPS-REQUIRED",
+      "description": "HTTPS required",
+      "type": "require_absence_of_id",
+      "finding_id": "WEB-TLS-NOHTTPS",
+      "fail_status": "FAIL"
+    },
+    {
+      "id": "BL-SSH-NOT-PUBLIC",
+      "description": "SSH should not be exposed publicly with weak configuration",
+      "type": "forbid_finding_prefix",
+      "prefix": "SYS-SSH-ROOTLOGIN",
+      "fail_status": "FAIL"
+    },
+    {
+      "id": "BL-NO-DEBUG-DISCLOSURE",
+      "description": "Debug mode / verbose error output must be disabled",
+      "type": "forbid_finding_prefix",
+      "prefix": "WEB-INFODISC",
+      "fail_status": "FAIL"
+    },
+    {
+      "id": "BL-SECURITY-HEADERS",
+      "description": "Core security headers must be present",
+      "type": "forbid_finding_prefix",
+      "prefix": "WEB-HDR-MISSING",
+      "fail_status": "WARN"
+    },
+    {
+      "id": "BL-NO-HIGH-SYSTEM-ISSUES",
+      "description": "No High/Critical system findings",
+      "type": "require_no_high_or_above_in_category",
+      "category": "system",
+      "fail_status": "FAIL"
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+AYYSCANNER Proprietary License
+
+Copyright © 2026 Abdellah Ayyat. All rights reserved.
+
+1. Ownership
+
+AYYSCANNER, including its source code, architecture, original implementation, documentation, branding, and associated materials, is the intellectual property of Abdellah Ayyat, except where otherwise stated for third-party components.
+
+2. Permission
+
+Permission is granted to individuals and organizations to use AYYSCANNER for authorized security testing, research, educational purposes, and testing of systems they own or have explicit permission to assess.
+
+3. Restrictions
+
+Without prior written permission from Abdellah Ayyat, you may not:
+
+Sell, sublicense, or commercially redistribute AYYSCANNER or substantial portions of it.
+
+Claim ownership or authorship of AYYSCANNER or its original code.
+
+Remove or modify copyright, author, license, or attribution notices.
+
+Repackage AYYSCANNER or substantial portions of its source code as another product.
+
+Distribute modified versions of AYYSCANNER as your own proprietary product.
+
+Use AYYSCANNER for unauthorized access, scanning, exploitation, or other unlawful activity.
+
+4. Modifications
+
+You may modify AYYSCANNER for your own private and authorized use.
+
+Modified versions may not be publicly distributed without prior written permission from the owner
+
+5. Third-Party Components
+
+AYYSCANNER may include or depend upon third-party software. Such components remain subject to their respective licenses. Nothing in this license overrides the rights granted by those licenses.
+
+6. Responsible Use
+
+AYYSCANNER is intended for legitimate security research, authorized penetration testing, defensive security, and educational purposes.
+
+You are solely responsible for ensuring that your use of AYYSCANNER is lawful and properly authorized.
+
+7. Disclaimer of Warranty
+
+AYYSCANNER is provided "AS IS", without warranties of any kind, express or implied.
+
+The author does not guarantee that the software will be error-free, uninterrupted, or suitable for any particular purpose.
+
+8. Limitation of Liability
+
+To the maximum extent permitted by applicable law, Abdellah Ayyat shall not be liable for any direct, indirect, incidental, special, consequential, or other damages arising from the use or inability to use AYYSCANNER.
+
+9. Termination
+
+Any permission granted under this license automatically terminates if you violate its terms.
+
+Upon termination, you must stop using and distributing AYYSCANNER and any unauthorized copies or modified versions.
+
+10. Contact
+
+For permission to commercially use, redistribute, modify, or otherwise use AYYSCANNER outside the terms of this license, contact:
+
+Abdellah Ayyat
+
+AYYSCANNER
+Copyright © 2026 Abdellah Ayyat
+All rights reserved.

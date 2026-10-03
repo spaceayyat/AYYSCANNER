@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ayyscanner"
+dynamic = ["version"]
+description = "Web security scanner with a local web UI, CLI and detailed reports. For targets you are authorized to test."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE.txt" }
+authors = [{ name = "Abdellah Ayyat" }]
+dependencies = [
+    "flask>=3.0,<4",
+    "requests>=2.31,<3",
+    "beautifulsoup4>=4.12,<5",
+    "reportlab>=4.0,<5",
+]
+
+[project.optional-dependencies]
+system = ["psutil>=5.9"]
+
+[project.scripts]
+ayyscanner = "ayyscanner.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "ayyscanner.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["ayyscanner*"]
+
+[tool.setuptools.package-data]
+ayyscanner = ["assets/*", "server/static/*"]

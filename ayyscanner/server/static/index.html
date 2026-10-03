@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>AYYSCANNER - Web security scanner</title>
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <script src="/static/theme-init.js"></script>
+  <link rel="stylesheet" href="/assets/tokens.css">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <button type="button" class="home-btn" id="home-btn" title="Home: back to the start screen" aria-label="Home">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M3 11.2 12 3.5l9 7.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 10v10.5h13V10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M10 20.5v-5.5h4v5.5" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        <span>Home</span>
+      </button>
+      <a class="brand" href="/" id="brand" aria-label="AYYSCANNER">
+        <img src="/assets/logo.svg" alt="" width="34" height="34">
+        <span class="wordmark">AYY<span>SCANNER</span></span>
+      </a>
+    </div>
+    <div class="topbar-right">
+      <span class="version" id="version"></span>
+      <div class="theme-switch" role="group" aria-label="Colour theme">
+        <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
+        <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
+        <button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="panel" id="scan-panel" aria-labelledby="scan-title">
+      <h1 id="scan-title">Scan a website for security issues</h1>
+      <p class="lead">AYYSCANNER inspects HTTPS and TLS, security headers, cookies, exposed files and page content, then reports only what it actually observed. Only scan sites you own or are authorized to test.</p>
+
+      <form id="scan-form" novalidate>
+        <label for="target">Target URL</label>
+        <div class="input-row">
+          <input id="target" name="target" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://your-site.example" aria-describedby="target-error">
+          <button id="scan-btn" class="btn primary" type="submit">Start scan</button>
+        </div>
+        <p class="field-error" id="target-error" role="alert" hidden></p>
+
+        <label class="check">
+          <input type="checkbox" id="authorized">
+          <span>I own this target or have explicit permission to test it.</span>
+        </label>
+        <p class="field-error" id="authorized-error" role="alert" hidden></p>
+
+        <details class="options" id="options">
+          <summary>Scan options</summary>
+          <div class="options-grid" id="options-grid"></div>
+          <button type="button" class="btn link" id="options-reset">Reset to defaults</button>
+        </details>
+      </form>
+    </section>
+
+    <section class="panel" id="recent-panel" aria-labelledby="recent-title" hidden>
+      <div class="summary-head">
+        <h2 id="recent-title">Recent scans</h2>
+        <span class="muted" id="recent-note"></span>
+      </div>
+      <ul class="recent" id="recent-list"></ul>
+    </section>
+
+    <section class="panel" id="progress-panel" aria-live="polite" hidden>
+      <div class="progress-head">
+        <div>
+          <h2 id="progress-title">Scanning</h2>
+          <p class="muted mono" id="progress-target"></p>
+        </div>
+        <button type="button" class="btn secondary" id="cancel-btn">Stop scan</button>
+      </div>
+      <progress id="progress-bar" max="100" value="0" aria-label="Scan progress"></progress>
+      <p class="progress-msg"><span id="progress-message">Starting …</span> <span class="muted" id="progress-elapsed"></span></p>
+      <ol class="steps" id="steps"></ol>
+    </section>
+
+    <section class="panel alert error" id="error-panel" role="alert" hidden>
+      <h2 id="error-title">The scan could not be completed</h2>
+      <p id="error-message"></p>
+      <div class="actions"><button type="button" class="btn secondary" id="error-dismiss">Try again</button></div>
+    </section>
+
+    <section id="results" hidden></section>
+
+    <section class="panel" id="empty-state" aria-labelledby="how-title">
+      <h2 id="how-title">How it works</h2>
+      <ol class="how">
+        <li><strong>Enter a target.</strong> A domain or full URL, such as <code>example.com</code> or <code>http://localhost:3000</code>.</li>
+        <li><strong>Confirm authorization.</strong> Scans send real requests to the target, so only test what you are allowed to.</li>
+        <li><strong>Read the results.</strong> Every finding shows its severity, how sure the scanner is, the evidence, and how to fix it. Export as HTML, PDF, Markdown, JSON or CSV.</li>
+      </ol>
+      <div class="legend">
+        <p><span class="chip st confirmed">Confirmed</span> Directly observed in the response.</p>
+        <p><span class="chip st potential">Potential</span> Indicators found; verify manually.</p>
+        <p><span class="chip st info">Informational</span> Context with no direct impact.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <span>AYYSCANNER inspects a single page passively. A clean report does not prove a site is secure.</span>
+  </footer>
+
+  <script src="/static/app.js" defer></script>
+</body>
+</html>
