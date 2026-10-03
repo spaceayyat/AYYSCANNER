@@ -32,11 +32,15 @@ from ayyscanner.report.common import (
     SEVERITY_ORDER,
     STATUS_HELP,
     STATUS_ORDER,
+    factor_text,
     fmt_time,
     key_observations,
+    score_headline,
+    score_notes,
 )
 
 BRAND = colors.HexColor("#C2202F")
+SCORE_COLORS = {"excellent": "#13773A", "good": "#4D7A12", "fair": "#94560A", "poor": "#C2261B", "critical": "#9D1450", "unrated": "#4B5565"}
 SEV_COLORS = {"Critical": "#9D1450", "High": "#C2261B", "Medium": "#94560A", "Low": "#1A5BBD", "Informational": "#4B5565"}
 INK, MUTED, RULE, TINT = colors.HexColor("#14181F"), colors.HexColor("#4F5A69"), colors.HexColor("#DBDFE6"), colors.HexColor("#F1F3F6")
 PAGE_W = A4[0] - 36 * mm
@@ -145,6 +149,23 @@ def render_pdf(result: ScanResult) -> bytes:
     ], st))
     if result.errors:
         story += [Paragraph("WARNINGS / ERRORS DURING THE SCAN", st["label"])] + [Paragraph(f"• {_t(e)}", st["body"]) for e in result.errors]
+
+    score = result.score()
+    sc_color = colors.HexColor(SCORE_COLORS.get(score["band"], "#4B5565"))
+    big = ParagraphStyle("scorebig", parent=st["body"], fontName="Helvetica-Bold", fontSize=34, leading=38, textColor=sc_color)
+    sc_table = Table([[Paragraph(f"{score['score']}<font size=13 color='#4F5A69'> / 100</font>" if score["rated"] else "Not rated", big),
+                       [Paragraph(f"<b>{_t(score['label'])}</b>", ParagraphStyle("v", parent=st["body"], fontSize=13, leading=17, textColor=sc_color)),
+                        Paragraph(_t(score["meaning"]), st["body"]),
+                        Paragraph(_t(f"Higher is better. Based on {score['coverage']['ran']} of {score['coverage']['total']} checks that ran.") if score["rated"] else "", st["muted"])]]],
+                      colWidths=[44 * mm, PAGE_W - 44 * mm], hAlign="LEFT")
+    sc_table.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("BOX", (0, 0), (-1, -1), 0.5, RULE), ("LINEABOVE", (0, 0), (-1, 0), 3, sc_color),
+                                  ("TOPPADDING", (0, 0), (-1, -1), 8), ("BOTTOMPADDING", (0, 0), (-1, -1), 8), ("LEFTPADDING", (0, 0), (-1, -1), 10)]))
+    story += [Paragraph("Security score", st["h2"]), sc_table]
+    if score["rated"] and score["factors"]:
+        story.append(Paragraph("WHAT LOWERED THE SCORE", st["label"]))
+        story += [Paragraph(f"• {_t(factor_text(f))}", st["body"]) for f in score["factors"]]
+    story += [Paragraph(f"<i>{_t(n)}</i>", st["muted"]) for n in score_notes(score)]
+    story.append(Paragraph(_t(score["method"]), st["muted"]))
 
     story.append(Paragraph("Summary", st["h2"]))
     sev_table = Table([[s.upper() for s in SEVERITY_ORDER], [str(counts[s]) for s in SEVERITY_ORDER]], colWidths=[PAGE_W / 5] * 5, hAlign="LEFT")

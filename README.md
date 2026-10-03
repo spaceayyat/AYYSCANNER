@@ -34,7 +34,15 @@ exported on demand from the results screen. The "I am authorized" box is deliber
 | Anywhere | `python run.py` |
 
 The first run creates a private `.venv` folder and installs the dependencies (internet required once). Later runs
-start immediately. If the dependencies are already importable (your own environment, CI, a container),
+start immediately.
+
+**Desktop shortcut.** The first time you start the app, AYYSCANNER puts a shortcut with its logo on your Desktop, so
+from then on you can launch it without opening the project folder (Windows: `AYYSCANNER.lnk`; Linux: `AYYSCANNER.desktop`
+plus an entry in the applications menu; macOS: `AYYSCANNER.app`). It is created once and never duplicated: if it is
+already there nothing happens, and if you move the project folder the existing shortcut is updated in place. If you
+delete it, it stays deleted. `python run.py --create-shortcut` brings it back and `python run.py --remove-shortcut`
+removes it. No Desktop folder (a server, a container) means nothing is created. Set `AYYSCANNER_NO_SHORTCUT=1` to turn
+it off. The shortcut opens a terminal window that shows the server log; close it or press Ctrl+C there to stop AYYSCANNER. If the dependencies are already importable (your own environment, CI, a container),
 `run.py` uses them as they are and creates nothing.
 
 **Manual install**, if you prefer to manage the environment yourself:
@@ -82,7 +90,32 @@ Each finding carries two separate judgements:
 
 There is also a **confidence** level, plus the evidence, affected URL, parameter, impact, remediation, CWE/OWASP
 mapping, detection method and timestamp. Site-quality notes (SEO, links) never count toward the security totals.
-There is deliberately no overall "score".
+
+### Security score (0-100)
+
+Every scan gets one overall score, shown at the top of the results, in the recent-scans list and in every export
+(it is also in the JSON as `score`). Higher is better. It is calculated only from the scan's own security findings, so
+the same findings always give the same score:
+
+- It starts at 100 and loses points per finding: **Critical 30, High 18, Medium 8, Low 3**. A **Confirmed** finding
+  counts in full, a **Potential** one counts half, Informational notes count nothing.
+- The same issue found in several places (for example three cookies without `HttpOnly`) adds 25% per extra instance,
+  up to double, so one noisy rule cannot sink the score alone.
+- A confirmed Critical finding caps the score at 39, a confirmed High at 74, so many small wins cannot hide one big
+  problem.
+- SEO and link-quality notes never count. A scan that failed is "Not rated". A scan that stopped early is scored on
+  the checks that ran and marked partial.
+
+| Score | Meaning |
+|---|---|
+| 90-100 Excellent | No significant weaknesses were found by the checks that ran |
+| 75-89 Good | Only minor weaknesses |
+| 50-74 Needs improvement | Several weaknesses; plan fixes soon |
+| 25-49 Poor | Serious weaknesses; fix promptly |
+| 0-24 Critical | Severe weaknesses; fix these first |
+
+The results screen lists exactly which findings cost how many points. The score measures only what this scanner looks
+for: 100 does not mean a site is secure. The rules live in `ayyscanner/scoring.py`.
 
 ### Exporting
 
@@ -99,6 +132,7 @@ All optional. Copy `.env.example` to `.env`, or set real environment variables (
 | `AYYSCANNER_HOST` | `127.0.0.1` | Interface to listen on. Keep it local (see *Security*). |
 | `AYYSCANNER_PORT` | `8765` | Port |
 | `AYYSCANNER_OPEN_BROWSER` | `1` | Open the UI on start |
+| `AYYSCANNER_NO_SHORTCUT` | unset | Set to `1` to never create the desktop shortcut |
 | `AYYSCANNER_MAX_CONCURRENT_SCANS` | `2` | Simultaneous scans (1-10) |
 | `AYYSCANNER_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 | `AYYSCANNER_DEBUG` | `0` | Include exception details in API errors (developers only) |
@@ -181,10 +215,14 @@ ayyscanner/
                  http.py (shared client: limits, redirects, SSRF guard), orchestrator in __init__.py
   report/        one ScanResult -> html, pdf, md, json, csv, terminal
   server/        Flask app, background jobs, static UI (index.html, app.css, app.js)
-  assets/        tokens.css (the single theme/design-token file), logo.svg
+  assets/        tokens.css (the single theme/design-token file), logo.svg, launcher icons (.ico/.png/.icns)
   scanners/      system and dependency scanners (CLI)
   models.py      Finding / ScanResult     cli.py      command line     settings.py   environment config
+  scoring.py     the 0-100 security score  shortcut.py first-run desktop shortcut (standard library only)
 ```
+
+The launcher icons are generated from the logo geometry by `python tools/make_icons.py` (needs Pillow; the generated
+files are committed, so users never need it).
 
 To add a check: add its text to `web_scan/rules.py`, write the check function, call it from
 `web_scan/__init__.py` with `_run_stage(...)`, and add a test. Colours live only in `assets/tokens.css`.

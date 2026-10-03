@@ -8,6 +8,10 @@ directly and touches nothing. Any arguments are passed to the ayyscanner command
 
     python run.py                      start the web UI (or reuse it if it is already running)
     python run.py web https://example.com --yes
+    python run.py --create-shortcut    (re)create the desktop shortcut; --remove-shortcut deletes it
+
+The first time the UI is started, a desktop shortcut with the AYYSCANNER logo is created automatically
+(see ayyscanner/shortcut.py). Set AYYSCANNER_NO_SHORTCUT=1 to turn that off.
 """
 
 from __future__ import annotations
@@ -83,9 +87,41 @@ def reuse_running_instance() -> bool:
         return False
 
 
+def shortcut_command(flag: str) -> int:
+    """`python run.py --create-shortcut` / `--remove-shortcut` (standard library only)."""
+    sys.path.insert(0, str(ROOT))
+    from ayyscanner import shortcut
+
+    outcome = shortcut.ensure_shortcut(force=True) if flag == "--create-shortcut" else shortcut.remove_shortcut()
+    message = shortcut.describe(outcome) or outcome.message or "Nothing to do."
+    print(message)
+    return 0 if outcome.status in (shortcut.CREATED, shortcut.UPDATED, shortcut.REMOVED, shortcut.EXISTS, shortcut.SKIPPED) else 1
+
+
+def first_run_shortcut() -> None:
+    """On the first normal launch of the UI, put a shortcut with the logo on the Desktop. Silent when nothing is needed."""
+    if sys.argv[1:] not in ([], ["serve"]):
+        return  # CLI scans and reports are not "opening the app"
+    try:
+        sys.path.insert(0, str(ROOT))
+        from ayyscanner import shortcut
+        from ayyscanner.settings import load_dotenv
+
+        for env_file in (Path.cwd() / ".env", ROOT / ".env"):
+            load_dotenv(env_file)  # so AYYSCANNER_NO_SHORTCUT=1 also works from .env
+        line = shortcut.describe(shortcut.ensure_shortcut())
+        if line:
+            print(line, flush=True)
+    except Exception:  # noqa: BLE001 - the shortcut must never stop a normal start
+        pass
+
+
 def main() -> int:
     if sys.version_info < MIN_PYTHON:
         die(f"Python {MIN_PYTHON[0]}.{MIN_PYTHON[1]} or newer is required (you have {sys.version.split()[0]}).")
+    if len(sys.argv) == 2 and sys.argv[1] in ("--create-shortcut", "--remove-shortcut"):
+        return shortcut_command(sys.argv[1])
+    first_run_shortcut()
     if reuse_running_instance():
         return 0
     if not dependencies_available():

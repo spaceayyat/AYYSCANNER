@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import html as html_lib
+import math
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -24,6 +25,8 @@ from ayyscanner.report.common import (
     key_observations,
     read_asset,
     safe_http_url,
+    score_headline,
+    score_notes,
 )
 
 REPORT_CSS = """
@@ -86,6 +89,21 @@ th{color:var(--text-muted);font-weight:600;width:1%;white-space:nowrap}
 details summary{cursor:pointer;color:var(--brand);font-weight:600}
 .help{display:grid;gap:8px}
 .foot{margin-top:40px;font-size:12.5px;color:var(--text-faint);text-align:center}
+.score{border-top:4px solid var(--sc)}
+.score-excellent{--sc:var(--score-excellent)}.score-good{--sc:var(--score-good)}.score-fair{--sc:var(--score-fair)}
+.score-poor{--sc:var(--score-poor)}.score-critical{--sc:var(--score-critical)}.score-unrated{--sc:var(--score-unrated)}
+.score-main{display:flex;gap:26px;align-items:center;flex-wrap:wrap}
+.gauge{width:160px;height:160px;flex:none}
+.gauge .track{fill:none;stroke:var(--surface-3);stroke-width:12}
+.gauge .arc{fill:none;stroke:var(--sc);stroke-width:12;stroke-linecap:round}
+.gauge .num{font:800 46px/1 var(--font-sans);fill:var(--text);text-anchor:middle}
+.gauge .of{font:600 12px var(--font-sans);fill:var(--text-muted);text-anchor:middle;letter-spacing:.06em}
+.score-text{flex:1 1 280px;min-width:0}
+.score-text .verdict{font-size:22px;font-weight:800;color:var(--sc)}
+.score-text p{color:var(--text-muted);margin:6px 0 0}
+.score h3{font-size:15px;margin:20px 0 0}.score table{margin-top:10px}.score td.pts{font-family:var(--font-mono);font-weight:700;white-space:nowrap;color:var(--c)}
+.score .note{border-left:3px solid var(--border-strong);padding-left:12px;color:var(--text-muted);font-size:13.5px;margin:10px 0 0}
+@media print{.score{break-inside:avoid}}
 @media (max-width:720px){.tiles{grid-template-columns:repeat(2,1fr)}}
 @media print{:root{color-scheme:light}body{background:#fff}.filters{display:none}.finding{break-inside:avoid;box-shadow:none}.wrap{padding:0}}
 """
@@ -155,6 +173,43 @@ def _finding_card(f: Finding, result: ScanResult, index: int) -> str:
 {f'<h4>References</h4><ul>{refs}</ul>' if refs else ''}
 <footer>Observed {esc(fmt_time(result.started_at))} · {esc(result.tool)} {esc(result.tool_version)}</footer>
 </article>"""
+
+
+def _score_card(result: ScanResult) -> str:
+    sc = result.score()
+    rated = bool(sc["rated"])
+    circ = 2 * math.pi * 52
+    arc = ""
+    if rated and sc["score"] > 0:
+        arc = (f'<circle class="arc" cx="60" cy="60" r="52" transform="rotate(-90 60 60)" '
+               f'stroke-dasharray="{circ * sc["score"] / 100:.2f} {circ:.2f}"/>')
+    num, of = (str(sc["score"]), "OUT OF 100") if rated else ("&ndash;", "NOT RATED")
+    gauge = (f'<svg class="gauge" viewBox="0 0 120 120" role="img" aria-label="Security score {esc(score_headline(sc))}">'
+             f'<circle class="track" cx="60" cy="60" r="52"/>{arc}<text class="num" x="60" y="69">{num}</text>'
+             f'<text class="of" x="60" y="88">{of}</text></svg>')
+    cov = sc["coverage"]
+    about = (f"A summary of this scan's security findings out of 100 (higher is better). It starts at 100 and loses points "
+             f"for each issue the scanner confirmed or suspected, weighted by severity. Based on {cov['ran']} of {cov['total']} checks that ran."
+             if rated else "A score needs a scan that completed at least one check.")
+    verdict = esc(score_headline(sc))
+    rows = ""
+    if rated and sc["factors"]:
+        def row(f: dict[str, Any]) -> str:
+            times = f' &times; {f["count"]}' if f["count"] > 1 else ""
+            return (f'<tr><td class="pts sev-{_slug(f["severity"])}">-{f["penalty"]:g}</td><td>{esc(f["title"])}{times}</td>'
+                    f'<td>{esc(f["severity"])}</td><td>{esc(f["status"])}</td></tr>')
+
+        body = "".join(row(f) for f in sc["factors"])
+        more = f'<p class="muted">Top {len(sc["factors"])} of {sc["factors_total"]} factors shown.</p>' if sc["factors_total"] > len(sc["factors"]) else ""
+        rows = (f'<h3>What lowered the score</h3><div class="scroll"><table><tr><th>Points lost</th><th>Finding</th>'
+                f'<th>Severity</th><th>Status</th></tr>{body}</table></div>{more}')
+    elif rated:
+        rows = '<h3>What lowered the score</h3><p class="muted">Nothing. No security findings were deducted.</p>'
+    notes = "".join(f'<p class="note">{esc(n)}</p>' for n in score_notes(sc))
+    return (f'<div class="card score score-{sc["band"]}"><div class="score-main">{gauge}<div class="score-text">'
+            f'<div class="verdict">{verdict}</div><p>{esc(sc["meaning"])}</p><p>{esc(about)}</p></div></div>{rows}{notes}'
+            f'<details><summary>How is this score calculated?</summary><p class="muted">{esc(sc["method"])} '
+            f'The same findings always produce the same score.</p></details></div>')
 
 
 def _summary(result: ScanResult) -> str:
@@ -290,6 +345,7 @@ def render_html(result: ScanResult) -> str:
 <div class="card hero"><div class="brand">{read_asset('logo.svg')}<div><div class="wordmark">AYY<span>SCANNER</span></div><h1>Security scan report</h1></div></div>
 <div class="target">{esc(result.target)}</div><dl class="meta-grid">{meta_html}</dl></div>
 {notices}
+<h2>Security score</h2>{_score_card(result)}
 <h2>Summary</h2><div class="card">{_summary(result)}</div>
 <h2>Security findings</h2><div class="filters" role="group" aria-label="Filter findings">{filter_buttons}</div>{findings_html}
 {quality_html}{_facts(result)}{_checks(result)}{baseline}{scope_html}{help_html}

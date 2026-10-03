@@ -8,6 +8,8 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+
+from ayyscanner import __version__
 from pathlib import Path
 
 from ayyscanner.models import Confidence, Finding, FindingStatus, ScanResult, Severity
@@ -65,7 +67,7 @@ class HtmlReportTests(unittest.TestCase):
     def test_contains_every_required_section_and_field(self):
         for needle in ("Security scan report", "Summary", "Security findings", "Affected URL / endpoint", "Parameter", "Description", "Technical details",
                        "Detection method", "Evidence", "Impact", "Remediation", "References", "Confidence: High", "CWE-693", "Observed", "HTTP requests",
-                       "AYYSCANNER 1.0.0", "Checks performed", "Scope and limitations", "How to read the finding statuses", "Site quality"):
+                       f"AYYSCANNER {__version__}", "Checks performed", "Scope and limitations", "How to read the finding statuses", "Site quality"):
             self.assertIn(needle, self.html)
 
     def test_quality_findings_are_not_in_the_security_totals(self):

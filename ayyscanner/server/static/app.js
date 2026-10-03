@@ -283,6 +283,7 @@
   }
 
   // ------------------------------------------------- recent (saved) scans
+  const scoreBand = (n) => (n >= 90 ? "excellent" : n >= 75 ? "good" : n >= 50 ? "fair" : n >= 25 ? "poor" : "critical");
   const STATE_LABEL = { queued: "Queued", running: "Running", done: "Completed", failed: "Failed", cancelled: "Stopped" };
   async function loadRecent() {
     let data;
@@ -294,6 +295,7 @@
       const detail = active ? `Running · ${s.percent}%` : `${STATE_LABEL[s.state] || s.state}${s.findings != null ? ` · ${s.findings} finding${s.findings === 1 ? "" : "s"}` : ""} · ${fmtDate(new Date((s.finished || s.created) * 1000).toISOString())}`;
       return h("li", {},
         h("div", { class: "what" }, h("span", { class: "mono", text: s.target }), h("span", { class: "when", text: detail })),
+        typeof s.score === "number" ? h("span", { class: `score-badge score-${scoreBand(s.score)}`, title: "Security score", text: `${s.score}/100` }) : null,
         h("button", { type: "button", class: "btn secondary", onclick: () => openScan(s.id, s.target), text: active ? "View progress" : "Open" }));
     }));
     if (!$("#scan-panel").hidden) show($("#recent-panel"), state.recentCount > 0);
@@ -474,6 +476,68 @@
       h("div", { class: "menu-list" }, ...items.map(([label, href, tab]) => h("a", { href, ...(tab ? { target: "_blank", rel: "noopener" } : { download: "" }), text: label }))));
   }
 
+  // ------------------------------------------------------------ security score
+  const SVGNS = "http://www.w3.org/2000/svg";
+  function svgEl(tag, attrs, text) {
+    const el = document.createElementNS(SVGNS, tag);
+    for (const [k, v] of Object.entries(attrs || {})) el.setAttribute(k, v);
+    if (text !== undefined) el.textContent = text;
+    return el;
+  }
+  function gauge(score) {
+    const R = 52, C = 2 * Math.PI * R, rated = typeof score.score === "number";
+    const svg = svgEl("svg", { class: "gauge", viewBox: "0 0 120 120", role: "img",
+      "aria-label": rated ? `Security score ${score.score} out of 100: ${score.label}` : "Security score: not rated" });
+    svg.append(svgEl("circle", { class: "track", cx: 60, cy: 60, r: R }));
+    if (rated && score.score > 0) {
+      svg.append(svgEl("circle", { class: "arc", cx: 60, cy: 60, r: R, transform: "rotate(-90 60 60)",
+        "stroke-dasharray": `${(C * score.score / 100).toFixed(2)} ${C.toFixed(2)}` }));
+    }
+    svg.append(svgEl("text", { class: "num", x: 60, y: 69 }, rated ? String(score.score) : "–"),
+      svgEl("text", { class: "of", x: 60, y: 88 }, rated ? "OUT OF 100" : "NOT RATED"));
+    return svg;
+  }
+  function factorEl(f, max) {
+    const meter = svgEl("svg", { viewBox: "0 0 100 5", preserveAspectRatio: "none", "aria-hidden": "true" });
+    meter.append(svgEl("rect", { x: 0, y: 0, width: Math.max(2, (100 * f.penalty) / max).toFixed(1), height: 5 }));
+    return h("li", { class: `factor sev-${slug(f.severity)}` },
+      h("div", { class: "name" }, sevChip(f.severity), statusChip(f.status), h("span", { text: f.title }),
+        f.count > 1 ? h("span", { class: "muted", text: `× ${f.count}` }) : null),
+      h("span", { class: "pts", text: `−${f.penalty.toFixed(f.penalty % 1 ? 1 : 0)}` }),
+      h("div", { class: "meter" }, meter));
+  }
+  function scorePanel(result) {
+    const sc = result.score;
+    if (!sc) return null;
+    const rated = sc.rated;
+    const scale = h("div", { class: "score-scale", "aria-label": "Score bands" },
+      ...sc.bands.slice().reverse().map((b) => h("span", { class: `score-${b.key}${b.key === sc.band ? " on" : ""}` },
+        h("i"), `${b.min}–${b.max} ${b.label}`)));
+    const maxPenalty = Math.max(1, ...sc.factors.map((f) => f.penalty));
+    const cov = sc.coverage;
+    const notes = [];
+    if (sc.partial && rated) notes.push("This scan stopped early, so the score only reflects the checks that ran. It may be higher than the real picture.");
+    if (cov.failed) notes.push(`${cov.failed} check${cov.failed === 1 ? "" : "s"} failed to run and could not count toward the score.`);
+    sc.caps_applied.forEach((c) => notes.push(c.reason));
+    if (rated && sc.score === 100) notes.push("100 means the checks that ran found nothing to deduct. It does not prove the site is secure.");
+    return h("div", { class: `panel score-panel score-${sc.band}`, role: "region", "aria-label": "Overall security score" },
+      h("div", { class: "score-main" }, gauge(sc),
+        h("div", { class: "score-text" },
+          h("h2", {}, "Security score", h("span", { class: "verdict", text: rated ? `${sc.score}/100 · ${sc.label}` : sc.label })),
+          h("p", { text: sc.meaning }),
+          h("p", { class: "what", text: rated
+            ? `A summary of the security findings from this scan, out of 100 (higher is better). It starts at 100 and loses points for each issue the scanner confirmed or suspected, weighted by severity. Based on ${cov.ran} of ${cov.total} checks that ran.`
+            : "A score needs at least one completed check." }),
+          scale)),
+      rated ? h("div", { class: "score-factors" },
+        h("h3", { text: sc.factors.length ? `What lowered the score${sc.factors_total > sc.factors.length ? ` (top ${sc.factors.length} of ${sc.factors_total})` : ""}` : "What lowered the score" }),
+        sc.factors.length ? h("ul", { class: "factor-list" }, ...sc.factors.map((f) => factorEl(f, maxPenalty)))
+          : h("p", { class: "muted", text: "Nothing. No security findings were deducted." })) : null,
+      ...notes.map((n) => h("p", { class: "score-note", text: n })),
+      h("details", { class: "score-details" }, h("summary", { text: "How is this score calculated?" }), h("p", { text: sc.method }),
+        h("p", { text: "The same findings always produce the same score. SEO and link-quality notes are never counted." })));
+  }
+
   function renderResults(job) {
     clearTimeout(state.poll);
     const result = job.result;
@@ -546,7 +610,7 @@
       label, count !== null && count !== undefined ? h("span", { class: "count", text: count }) : null)));
     findingsHost.append(tablist, tabsHost);
 
-    root.replaceChildren(...[head, notices, summary, findingsHost].filter(Boolean)); // replaceChildren(null) would insert the text "null"
+    root.replaceChildren(...[head, notices, scorePanel(result), summary, findingsHost].filter(Boolean)); // replaceChildren(null) would insert the text "null"
     syncTabs(); refresh();
     showPanels({ scan: false, results: true });
     window.scrollTo({ top: 0, behavior: "smooth" });

@@ -14,8 +14,8 @@ Findings carry two independent judgements, on purpose:
                    vulnerability depends on context it cannot see.
     Informational  an observation with no direct security impact on its own.
 
-There is deliberately no aggregate "score": severities are reported per finding
-and summarized by count only.
+On top of the per-finding judgements, `ScanResult.score()` derives one overall 0-100 security
+score from the findings (see ayyscanner/scoring.py for exactly how).
 """
 
 from __future__ import annotations
@@ -246,6 +246,12 @@ class ScanResult:
             for f in self._select("security")
         )
 
+    def score(self) -> dict[str, Any]:
+        """The overall security score and the factors behind it. Deterministic: derived only from the findings."""
+        from ayyscanner.scoring import compute_score  # local import: scoring imports this module
+
+        return compute_score(self.findings, self.outcome, self.metadata.get("checks"))
+
     # -- (de)serialization --------------------------------------------------
 
     def to_dict(self) -> dict[str, Any]:
@@ -273,6 +279,7 @@ class ScanResult:
                 "quality": group("quality"),
                 "baseline_breakdown": self.baseline_breakdown(),
             },
+            "score": self.score(),
             "findings": [f.to_dict() for f in self.sorted_findings()],
             "baseline_results": [b.to_dict() for b in self.baseline_results],
             "errors": self.errors,

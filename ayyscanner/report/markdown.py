@@ -7,7 +7,8 @@ import re
 from typing import Any
 
 from ayyscanner.models import Finding, ScanResult
-from ayyscanner.report.common import OUTCOME_LABELS, SEVERITY_ORDER, STATUS_HELP, STATUS_ORDER, fmt_time, key_observations
+from ayyscanner.report.common import (OUTCOME_LABELS, SEVERITY_ORDER, STATUS_HELP, STATUS_ORDER, fmt_time, key_observations,
+                                     score_headline, score_notes)
 
 # Characters that can open emphasis, links, HTML, tables or entities. Because "[" is escaped, "(" / "!" cannot
 # form links or images on their own, so they (and "-") are left alone to keep the raw text readable.
@@ -69,6 +70,16 @@ def render_markdown(result: ScanResult) -> str:
            f"| Scanner | {md(result.tool)} {md(result.tool_version)} |", ""]
     if result.errors:
         out += ["> **Warnings / errors during the scan**", ">"] + [f"> - {md(e)}" for e in result.errors] + [""]
+    score = result.score()
+    out += ["## Security score", "", f"**{md(score_headline(score))}**" + (" (out of 100, higher is better)" if score["rated"] else ""), "",
+            md(score["meaning"]), ""]
+    if score["rated"]:
+        cov = score["coverage"]
+        out += [f"Based on {cov['ran']} of {cov['total']} checks that ran. {md(score['method'])}", ""]
+        if score["factors"]:
+            out += ["| Points lost | Finding | Severity | Status | Count |", "|---|---|---|---|---|"]
+            out += [f"| -{f['penalty']:g} | {md(f['title'])} | {f['severity']} | {f['status']} | {f['count']} |" for f in score["factors"]] + [""]
+    out += [f"> {md(n)}" for n in score_notes(score)] + ([""] if score_notes(score) else [])
     out += ["## Summary", "", "| " + " | ".join(SEVERITY_ORDER) + " |", "|" + "---|" * len(SEVERITY_ORDER),
             "| " + " | ".join(str(counts[s]) for s in SEVERITY_ORDER) + " |", "",
             " · ".join(f"**{statuses[s]}** {s.lower()}" for s in STATUS_ORDER), ""]

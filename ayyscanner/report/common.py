@@ -87,3 +87,27 @@ def key_observations(result: ScanResult) -> list[str]:
     if tech.get("exposed_files"):
         out.append("Sensitive files are publicly readable: " + ", ".join(tech["exposed_files"]) + ".")
     return out
+
+
+def score_headline(score: dict[str, Any]) -> str:
+    """One line such as '82/100 - Good', or 'Not rated'."""
+    return f"{score['score']}/100 - {score['label']}" if score.get("rated") else str(score.get("label", "Not rated"))
+
+
+def score_notes(score: dict[str, Any]) -> list[str]:
+    """Caveats that belong next to the number, in plain language."""
+    notes: list[str] = []
+    cov = score.get("coverage", {})
+    if score.get("partial") and score.get("rated"):
+        notes.append("The scan stopped early, so the score only reflects the checks that ran.")
+    if cov.get("failed"):
+        notes.append(f"{cov['failed']} check(s) failed to run and could not count toward the score.")
+    notes += [c["reason"] for c in score.get("caps_applied", [])]
+    if score.get("rated") and score.get("score") == 100:
+        notes.append("100 means the checks that ran found nothing to deduct; it does not prove the site is secure.")
+    return notes
+
+
+def factor_text(f: dict[str, Any]) -> str:
+    times = f" x{f['count']}" if f["count"] > 1 else ""
+    return f"-{f['penalty']:g}  {f['title']}{times} ({f['severity']}, {f['status'].lower()})"

@@ -75,6 +75,7 @@ class Job:
             "id": self.id, "state": self.state, "target": self.url, "created": self.created, "finished": self.finished,
             "percent": self.percent, "outcome": self.result.outcome if self.result else None,
             "findings": self.result.to_dict()["summary"]["security"]["total"] if self.result else None,
+            "score": self.result.score()["score"] if self.result else None,
         }
 
     def to_record(self) -> dict[str, Any]:

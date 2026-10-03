@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from ayyscanner.models import ScanResult, Severity
-from ayyscanner.report.common import OUTCOME_LABELS, SEVERITY_ORDER, STATUS_ORDER, fmt_time, key_observations
+from ayyscanner.report.common import (OUTCOME_LABELS, SEVERITY_ORDER, STATUS_ORDER, factor_text, fmt_time, key_observations,
+                                     score_headline, score_notes)
 
 _COLOR = {Severity.CRITICAL: "\033[95m", Severity.HIGH: "\033[91m", Severity.MEDIUM: "\033[93m",
           Severity.LOW: "\033[94m", Severity.INFO: "\033[90m"}
@@ -19,6 +20,16 @@ def render_terminal(result: ScanResult, use_color: bool = True) -> str:
     if result.duration_seconds is not None:
         lines.append(f"Duration: {result.duration_seconds}s" + (f", {result.requests_made} HTTP requests" if result.scan_type == "web" else ""))
     lines += [f"Outcome:  {OUTCOME_LABELS.get(result.outcome, result.outcome)}", ""]
+
+    score = result.score()
+    lines.append(f"Security score: {score_headline(score)}" + (f"  (checks that ran: {score['coverage']['ran']}/{score['coverage']['total']})" if score["rated"] and score["coverage"]["total"] else ""))
+    if score["rated"]:
+        lines.append(f"  {score['meaning']}")
+        if score["factors"]:
+            lines.append("  What lowered the score:")
+            lines += [f"    {factor_text(f)}" for f in score["factors"]]
+    lines += [f"  Note: {n}" for n in score_notes(score)]
+    lines.append("")
 
     counts, statuses = result.severity_breakdown("security"), result.status_breakdown("security")
     lines.append("Security findings by severity:")

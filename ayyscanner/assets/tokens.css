@@ -42,6 +42,14 @@
   --sev-low: light-dark(#1a5bbd, #74acff);
   --sev-info: light-dark(#4b5565, #a3adbc);
 
+  /* overall score bands (always shown with a text label and the number, never colour alone) */
+  --score-excellent: light-dark(#13773a, #4cc477);
+  --score-good: light-dark(#4d7a12, #a6d94f);
+  --score-fair: light-dark(#94560a, #f2b13c);
+  --score-poor: light-dark(#c2261b, #ff7b6e);
+  --score-critical: light-dark(#9d1450, #ff6fa8);
+  --score-unrated: light-dark(#4b5565, #a3adbc);
+
   --radius: 10px;
   --radius-sm: 6px;
   --shadow: 0 1px 2px light-dark(rgb(16 24 40 / 6%), rgb(0 0 0 / 40%));
