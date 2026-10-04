@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>AYYSCANNER - Web security scanner</title>
+  <title>AYYSCANNER - Security scanner</title>
   <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
   <script src="/static/theme-init.js"></script>
   <link rel="stylesheet" href="/assets/tokens.css">
@@ -19,96 +19,313 @@
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M3 11.2 12 3.5l9 7.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 10v10.5h13V10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M10 20.5v-5.5h4v5.5" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
         <span>Home</span>
       </button>
-      <a class="brand" href="/" id="brand" aria-label="AYYSCANNER">
+      <a class="brand" href="#/" id="brand" aria-label="AYYSCANNER">
         <img src="/assets/logo.svg" alt="" width="34" height="34">
         <span class="wordmark">AYY<span>SCANNER</span></span>
       </a>
     </div>
-    <div class="topbar-right">
+    <nav class="topnav" aria-label="Main">
+      <a href="#/settings" data-nav="settings">Settings</a>
+      <a href="#/help" data-nav="help">Help</a>
       <span class="version" id="version"></span>
-      <div class="theme-switch" role="group" aria-label="Colour theme">
-        <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
-        <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
-        <button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
-      </div>
-    </div>
+    </nav>
   </header>
 
   <main id="main">
-    <section class="panel" id="scan-panel" aria-labelledby="scan-title">
-      <h1 id="scan-title">Scan a website for security issues</h1>
-      <p class="lead">AYYSCANNER inspects HTTPS and TLS, security headers, cookies, exposed files and page content, then reports only what it actually observed. Only scan sites you own or are authorized to test.</p>
+    <!-- ============================== HOME ============================== -->
+    <section id="view-home" class="view" hidden>
+      <div class="hero">
+        <h1>What would you like to check?</h1>
+        <p class="lead">AYYSCANNER is a defensive security scanner. Check a website, this computer, or a software project's dependencies. It reports only what it actually observed, with a clear score and how to fix each problem. Everything runs on your computer.</p>
+      </div>
 
-      <form id="scan-form" novalidate>
-        <label for="target">Target URL</label>
-        <div class="input-row">
-          <input id="target" name="target" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://your-site.example" aria-describedby="target-error">
-          <button id="scan-btn" class="btn primary" type="submit">Start scan</button>
+      <div class="panel quick" id="quick-panel">
+        <div class="quick-text">
+          <h2>Quick scan</h2>
+          <p class="muted">Nothing to configure. Type a website, press the button. Checks HTTPS, certificate, security headers, cookies and exposed files (skips link checking, so it is fast).</p>
         </div>
-        <p class="field-error" id="target-error" role="alert" hidden></p>
+        <form id="quick-form" novalidate>
+          <label for="quick-target" class="sr-only">Website to scan</label>
+          <div class="input-row">
+            <input id="quick-target" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="example.com or http://localhost:3000" aria-describedby="quick-error">
+            <button class="btn primary" type="submit">Quick scan</button>
+          </div>
+          <p class="field-error" id="quick-error" role="alert" hidden></p>
+        </form>
+      </div>
 
-        <label class="check">
-          <input type="checkbox" id="authorized">
-          <span>I own this target or have explicit permission to test it.</span>
-        </label>
-        <p class="field-error" id="authorized-error" role="alert" hidden></p>
+      <div class="banner" id="active-banner" role="status" hidden>
+        <span><strong>A scan is running:</strong> <span class="mono" id="active-target"></span></span>
+        <a class="btn secondary" id="active-link" href="#/">View progress</a>
+      </div>
 
-        <details class="options" id="options">
-          <summary>Scan options</summary>
-          <div class="options-grid" id="options-grid"></div>
-          <button type="button" class="btn link" id="options-reset">Reset to defaults</button>
+      <div class="cards" id="scan-cards">
+        <!-- Website scan -->
+        <section class="panel scan-card" aria-labelledby="web-title">
+          <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/></svg></div>
+          <h2 id="web-title">Website scan</h2>
+          <p class="muted">Scan a website over <strong>HTTP</strong> or <strong>HTTPS</strong>, including <strong>localhost</strong> and <strong>LAN</strong> addresses. One page is analysed passively.</p>
+          <form id="web-form" novalidate>
+            <label for="target">Website address</label>
+            <input id="target" name="target" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://your-site.example" aria-describedby="target-error">
+            <p class="field-error" id="target-error" role="alert" hidden></p>
+            <details class="options" id="options">
+              <summary>Scan options</summary>
+              <div class="options-grid" id="options-grid"></div>
+              <button type="button" class="btn link" id="options-reset">Reset to defaults</button>
+            </details>
+            <button id="scan-btn" class="btn primary block" type="submit">Start website scan</button>
+          </form>
+        </section>
+
+        <!-- System scan -->
+        <section class="panel scan-card" aria-labelledby="sys-title">
+          <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></div>
+          <h2 id="sys-title">System scan</h2>
+          <p class="muted">Checks the security settings of <strong>this computer</strong>. Read-only: nothing is changed.</p>
+          <p class="card-sub">What it checks</p>
+          <ul class="checklist">
+            <li>Operating system and version</li>
+            <li>Network ports that are open and listening</li>
+            <li>Permissions on sensitive files (Linux/macOS)</li>
+            <li>SSH server settings, if an SSH server is installed</li>
+            <li>Whether a firewall is present</li>
+          </ul>
+          <p class="fineprint">Some checks need administrator rights. If one is missing, it is skipped and the report says so.</p>
+          <button id="system-btn" class="btn primary block" type="button">Run system scan</button>
+        </section>
+
+        <!-- Project scan -->
+        <section class="panel scan-card" aria-labelledby="proj-title">
+          <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+          <h2 id="proj-title">Project scan</h2>
+          <p class="muted">Checks a project's <strong>dependencies</strong> for known vulnerabilities using <strong>OSV.dev</strong>. Reads <code>requirements.txt</code>, <code>package-lock.json</code> and <code>pyproject.toml</code>.</p>
+          <form id="project-form" novalidate>
+            <label for="project-dir">Project folder on this computer</label>
+            <input id="project-dir" type="text" autocomplete="off" spellcheck="false" placeholder="/home/you/my-app   or   C:\Users\you\my-app" aria-describedby="project-error">
+            <p class="field-error" id="project-error" role="alert" hidden></p>
+            <p class="fineprint">Needs internet. Only package names and versions are sent to OSV.dev, never your code.</p>
+            <button id="project-btn" class="btn primary block" type="submit">Start project scan</button>
+          </form>
+        </section>
+      </div>
+
+      <section class="panel" id="recent-panel" aria-labelledby="recent-title" hidden>
+        <div class="summary-head">
+          <h2 id="recent-title">Recent scans</h2>
+          <span class="muted" id="recent-note"></span>
+        </div>
+        <ul class="history" id="recent-list"></ul>
+        <div class="history-foot">
+          <button type="button" class="btn link" id="recent-more" hidden>Show all</button>
+          <span class="spacer"></span>
+          <button type="button" class="btn link danger" id="recent-clear">Clear history</button>
+        </div>
+      </section>
+    </section>
+
+    <!-- ============================== SCAN (progress / results) ============================== -->
+    <section id="view-scan" class="view" hidden>
+      <section class="panel" id="progress-panel" aria-live="polite" hidden>
+        <div class="progress-head">
+          <div>
+            <h2 id="progress-title">Scanning</h2>
+            <p class="muted mono" id="progress-target"></p>
+          </div>
+          <button type="button" class="btn secondary" id="cancel-btn">Stop scan</button>
+        </div>
+        <progress id="progress-bar" max="100" value="0" aria-label="Scan progress"></progress>
+        <p class="progress-msg"><span id="progress-message">Starting …</span> <span class="muted" id="progress-elapsed"></span></p>
+        <ol class="steps" id="steps"></ol>
+        <p class="fineprint">You can leave this page: the scan keeps running and appears under Recent scans on Home.</p>
+      </section>
+
+      <section class="panel alert error" id="error-panel" role="alert" hidden>
+        <h2 id="error-title">The scan could not be completed</h2>
+        <p id="error-message"></p>
+        <details class="tech" id="error-tech" hidden><summary>Technical details</summary><pre id="error-details"></pre></details>
+        <div class="actions"><button type="button" class="btn secondary" id="error-dismiss">Back to Home</button></div>
+      </section>
+
+      <section id="results" hidden></section>
+    </section>
+
+    <!-- ============================== SETTINGS ============================== -->
+    <section id="view-settings" class="view" hidden>
+      <div class="page-head">
+        <h1>Settings</h1>
+        <p class="muted">Saved automatically on this computer, and kept when you restart AYYSCANNER. <span class="save-status" id="save-status" role="status"></span></p>
+      </div>
+      <p class="field-error" id="settings-error" role="alert" hidden></p>
+
+      <div class="settings-grid">
+        <section class="panel setting-group" aria-labelledby="set-appearance">
+          <h2 id="set-appearance">Appearance</h2>
+          <fieldset>
+            <legend>Theme</legend>
+            <div class="theme-switch" role="group" aria-label="Colour theme">
+              <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
+              <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
+              <button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
+            </div>
+            <p class="fineprint">“System” follows your computer’s light or dark mode. Your choice is remembered.</p>
+          </fieldset>
+          <div class="field">
+            <label for="set-ui_scale">Interface size: <output id="scale-out">100%</output></label>
+            <input type="range" id="set-ui_scale" data-setting="ui_scale" min="80" max="150" step="5">
+            <p class="fineprint">Makes everything larger or smaller. 100% is the default.</p>
+          </div>
+        </section>
+
+        <section class="panel setting-group" aria-labelledby="set-scanner">
+          <h2 id="set-scanner">Scanner</h2>
+          <div class="field">
+            <label for="set-scan_timeout">Scan time limit (seconds)</label>
+            <input type="number" id="set-scan_timeout" data-setting="scan_timeout" min="30" max="3600" step="10">
+            <p class="fineprint">A scan is stopped after this long. What was found so far is kept and marked partial.</p>
+          </div>
+          <div class="field">
+            <label for="set-request_timeout">Request timeout (seconds)</label>
+            <input type="number" id="set-request_timeout" data-setting="request_timeout" min="1" max="60" step="1">
+            <p class="fineprint">How long to wait for one answer from a website (or from OSV.dev) before giving up.</p>
+          </div>
+          <label class="check"><input type="checkbox" id="set-auto_save_history" data-setting="auto_save_history"><span>Automatically save scan history on this computer</span></label>
+          <p class="fineprint">Off: scans are shown until AYYSCANNER stops, then forgotten.</p>
+        </section>
+
+        <section class="panel setting-group" aria-labelledby="set-results">
+          <h2 id="set-results">Results</h2>
+          <label class="check"><input type="checkbox" id="set-show_informational" data-setting="show_informational"><span>Show informational findings</span></label>
+          <p class="fineprint">Informational findings are notes with no direct security impact. Hide them for a shorter list.</p>
+          <div class="field">
+            <label for="set-sort_findings">Sort findings by</label>
+            <select id="set-sort_findings" data-setting="sort_findings"><option value="severity">Severity (most serious first)</option><option value="name">Name (A–Z)</option></select>
+          </div>
+          <div class="field">
+            <label for="set-result_view">Result display</label>
+            <select id="set-result_view" data-setting="result_view"><option value="detailed">Detailed</option><option value="compact">Compact</option></select>
+          </div>
+        </section>
+
+        <section class="panel setting-group" aria-labelledby="set-privacy">
+          <h2 id="set-privacy">Privacy</h2>
+          <ul class="plain">
+            <li><strong>AYYSCANNER runs locally.</strong> The program, its screen and your results all stay on this computer.</li>
+            <li><strong>Website scans connect to the target</strong> you enter, and only to it (plus links on that page if you enable link checking). That is the one thing a website scan must do.</li>
+            <li><strong>Project scans may contact OSV.dev</strong> (a public vulnerability database) and send package names and versions, never your source code.</li>
+            <li><strong>System scans send nothing anywhere.</strong> They only read settings on this computer.</li>
+            <li><strong>No telemetry.</strong> There are no analytics, accounts, tracking or automatic update checks. Scan history and settings are plain files in the folder shown below.</li>
+          </ul>
+        </section>
+
+        <section class="panel setting-group" aria-labelledby="set-data">
+          <h2 id="set-data">Your data</h2>
+          <p class="fineprint" id="data-location"></p>
+          <div class="actions">
+            <button type="button" class="btn secondary" id="clear-history-btn">Clear scan history</button>
+            <button type="button" class="btn secondary" id="shortcut-btn">Create desktop shortcut</button>
+            <button type="button" class="btn secondary" id="reset-settings-btn">Reset settings to defaults</button>
+          </div>
+          <p class="fineprint" id="data-status" role="status"></p>
+        </section>
+
+        <section class="panel setting-group about" aria-labelledby="set-about">
+          <h2 id="set-about">About</h2>
+          <div class="about-head">
+            <img src="/assets/logo.svg" alt="" width="56" height="56">
+            <div><div class="wordmark big">AYY<span>SCANNER</span></div><div class="muted" id="about-version"></div></div>
+          </div>
+          <p>A defensive security scanner with a local web interface and a command line. It looks for weaknesses and tells you how to fix them. It never exploits anything.</p>
+          <p class="card-sub">Supported scan types</p>
+          <ul class="plain">
+            <li><strong>Website:</strong> HTTP/HTTPS, localhost and LAN. Headers, cookies, TLS, exposed files, page content.</li>
+            <li><strong>System:</strong> this computer’s ports, file permissions, SSH and firewall.</li>
+            <li><strong>Project:</strong> dependency vulnerabilities from OSV.dev.</li>
+          </ul>
+          <p class="fineprint">Created by Abdellah Ayyat. AYYSCANNER Proprietary License, © 2026 Abdellah Ayyat; see LICENSE.txt and CREDITS.txt in the project folder.</p>
+        </section>
+      </div>
+    </section>
+
+    <!-- ============================== HELP ============================== -->
+    <section id="view-help" class="view" hidden>
+      <div class="page-head">
+        <h1>Help</h1>
+        <p class="muted">A plain-language guide. No security background needed.</p>
+      </div>
+      <div class="help">
+        <details class="panel" open><summary>What can AYYSCANNER scan?</summary>
+          <p>Three things:</p>
+          <ul>
+            <li><strong>A website</strong> (http or https, also your own <code>localhost</code> or a device on your home/office network). It looks at how the site is set up: secure connection, security headers, cookies, files that should not be public.</li>
+            <li><strong>This computer.</strong> Open network ports, permissions of sensitive files, SSH settings and whether a firewall exists.</li>
+            <li><strong>A software project.</strong> It reads the list of libraries your project uses and checks each one against a public database of known vulnerabilities (OSV.dev).</li>
+          </ul>
         </details>
-      </form>
-    </section>
-
-    <section class="panel" id="recent-panel" aria-labelledby="recent-title" hidden>
-      <div class="summary-head">
-        <h2 id="recent-title">Recent scans</h2>
-        <span class="muted" id="recent-note"></span>
-      </div>
-      <ul class="recent" id="recent-list"></ul>
-    </section>
-
-    <section class="panel" id="progress-panel" aria-live="polite" hidden>
-      <div class="progress-head">
-        <div>
-          <h2 id="progress-title">Scanning</h2>
-          <p class="muted mono" id="progress-target"></p>
-        </div>
-        <button type="button" class="btn secondary" id="cancel-btn">Stop scan</button>
-      </div>
-      <progress id="progress-bar" max="100" value="0" aria-label="Scan progress"></progress>
-      <p class="progress-msg"><span id="progress-message">Starting …</span> <span class="muted" id="progress-elapsed"></span></p>
-      <ol class="steps" id="steps"></ol>
-    </section>
-
-    <section class="panel alert error" id="error-panel" role="alert" hidden>
-      <h2 id="error-title">The scan could not be completed</h2>
-      <p id="error-message"></p>
-      <div class="actions"><button type="button" class="btn secondary" id="error-dismiss">Try again</button></div>
-    </section>
-
-    <section id="results" hidden></section>
-
-    <section class="panel" id="empty-state" aria-labelledby="how-title">
-      <h2 id="how-title">How it works</h2>
-      <ol class="how">
-        <li><strong>Enter a target.</strong> A domain or full URL, such as <code>example.com</code> or <code>http://localhost:3000</code>.</li>
-        <li><strong>Confirm authorization.</strong> Scans send real requests to the target, so only test what you are allowed to.</li>
-        <li><strong>Read the results.</strong> Every finding shows its severity, how sure the scanner is, the evidence, and how to fix it. Export as HTML, PDF, Markdown, JSON or CSV.</li>
-      </ol>
-      <div class="legend">
-        <p><span class="chip st confirmed">Confirmed</span> Directly observed in the response.</p>
-        <p><span class="chip st potential">Potential</span> Indicators found; verify manually.</p>
-        <p><span class="chip st info">Informational</span> Context with no direct impact.</p>
+        <details class="panel"><summary>What it cannot do</summary>
+          <ul>
+            <li>It is not a hacking tool. It never exploits, breaks into, or changes anything.</li>
+            <li>It does not guess passwords, test logins or submit forms.</li>
+            <li>It cannot prove something is secure. A high score means the checks it ran found little. Other problems may exist.</li>
+            <li>It does not scan your source code for bugs, only the libraries you depend on.</li>
+          </ul>
+        </details>
+        <details class="panel"><summary>Website scanning limits</summary>
+          <ul>
+            <li><strong>One page only.</strong> It analyses the address you give it, not the whole site.</li>
+            <li><strong>No JavaScript is run.</strong> Content a page builds in the browser after loading is not seen.</li>
+            <li><strong>No login support.</strong> It sees what a visitor who is not signed in sees. Pages behind a login are not scanned.</li>
+            <li>Only scan sites you own or have written permission to test. A scan sends real requests.</li>
+          </ul>
+        </details>
+        <details class="panel"><summary>System scanning</summary>
+          <p>Runs on the computer where AYYSCANNER is running. Some checks (such as listing every open port) need administrator rights; without them that check is skipped and the report says so. Linux/macOS file-permission checks do not apply on Windows.</p>
+        </details>
+        <details class="panel"><summary>Project (dependency) scanning</summary>
+          <p>Enter the folder of your project. AYYSCANNER reads <code>requirements.txt</code>, <code>package-lock.json</code> and <code>pyproject.toml</code>. Only libraries with an exact version (for example <code>flask==2.0.1</code>) can be checked; unpinned ones are listed as informational.</p>
+        </details>
+        <details class="panel"><summary>Why does a project scan need the internet?</summary>
+          <p>The list of known vulnerabilities lives on OSV.dev, a public service. AYYSCANNER sends it only package names and versions and reads back advisories. If OSV.dev cannot be reached, the scan tells you the results may be unavailable instead of saying everything is fine.</p>
+        </details>
+        <details class="panel"><summary>How is the security score worked out?</summary>
+          <p>It starts at 100 and loses points for each issue, depending on how serious it is and how sure the scanner is (Critical 30, High 18, Medium 8, Low 3; suspected issues count half). One serious confirmed problem caps the score so many small wins cannot hide it. Notes and SEO tips never lower it. The same findings always give the same score. Open “How is this score calculated?” on any result for the details.</p>
+        </details>
+        <details class="panel"><summary>What do Confirmed, Potential and Informational mean?</summary>
+          <ul>
+            <li><strong>Confirmed:</strong> the scanner saw it directly.</li>
+            <li><strong>Potential:</strong> there are hints, but only a person can tell whether it is a real problem. Check it manually.</li>
+            <li><strong>Informational:</strong> good to know, no direct security impact.</li>
+          </ul>
+        </details>
+        <details class="panel"><summary>Something went wrong. What now?</summary>
+          <ul>
+            <li><strong>“Unable to connect to the target.”</strong> Check the address, that the site or server is running, and your internet connection.</li>
+            <li><strong>“Invalid URL.”</strong> Use a domain like <code>example.com</code> or a full address like <code>http://localhost:3000</code>.</li>
+            <li><strong>“OSV.dev could not be reached.”</strong> Check your internet connection and try again.</li>
+            <li><strong>“Permission is required.”</strong> Start AYYSCANNER as administrator to include that system check.</li>
+            <li>Every error has a <em>Technical details</em> section you can copy when asking for help.</li>
+          </ul>
+        </details>
       </div>
     </section>
   </main>
 
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title">
+    <div id="confirm-form">
+      <h2 id="confirm-title">Confirm scan</h2>
+      <p id="confirm-text"></p>
+      <p class="confirm-target mono" id="confirm-target"></p>
+      <div class="actions">
+        <button type="button" class="btn secondary" id="confirm-cancel">Cancel</button>
+        <button type="button" class="btn primary" id="confirm-ok">Start scan</button>
+      </div>
+    </div>
+  </dialog>
+
   <footer class="site-footer">
-    <span>AYYSCANNER inspects a single page passively. A clean report does not prove a site is secure.</span>
+    <span>AYYSCANNER reports what its checks observed. A clean report does not prove a target is secure.</span>
   </footer>
 
-  <script src="/static/app.js" defer></script>
+  <script type="module" src="/static/js/main.js"></script>
 </body>
 </html>

@@ -22,7 +22,7 @@ from urllib.parse import urlsplit
 
 from bs4 import BeautifulSoup
 
-from ayyscanner.models import OUTCOME_FAILED, OUTCOME_PARTIAL, ScanResult
+from ayyscanner.models import OUTCOME_FAILED, OUTCOME_PARTIAL, ScanResult, Severity
 from ayyscanner.web_scan import probes, security, seo
 from ayyscanner.web_scan.context import ScanContext
 from ayyscanner.web_scan.http import HttpClient, ScanCancelled, resolve_is_public
@@ -53,13 +53,22 @@ def _fail(result: ScanResult, message: str) -> ScanResult:
     return result
 
 
-def _run_stage(ctx: ScanContext, name: str, fn: Callable[..., Any], *args: Any, notes: bool = True) -> None:
+def _run_stage(ctx: ScanContext, name: str, fn: Callable[..., Any], *args: Any, notes: bool = True,
+               domain: str = "security") -> None:
     """Run one group of checks. A bug or unexpected page structure in one stage
-    is reported in the results, and the remaining stages still run."""
+    is reported in the results, and the remaining stages still run.
+
+    Each check entry records how many non-informational findings its stage produced, which is what lets reports
+    say honestly which checks *passed* (ran and found nothing)."""
+    before_findings, before_checks = len(ctx.result.findings), len(ctx.checks)
     try:
         fn(*args)
         if notes:
             ctx.note_check(name, "ran")
+        produced = sum(1 for f in ctx.result.findings[before_findings:] if f.severity != Severity.INFO)
+        for entry in ctx.checks[before_checks:]:
+            entry["domain"] = domain
+            entry["issues"] = produced
     except ScanCancelled:
         raise
     except Exception:  # noqa: BLE001
@@ -185,7 +194,7 @@ def run_web_scan(
             def run_seo() -> None:
                 seo_facts.update(seo.run_seo_checks(ctx, page, soup))
 
-            _run_stage(ctx, "SEO and page quality", run_seo)
+            _run_stage(ctx, "SEO and page quality", run_seo, domain="quality")
 
             report(72, "links", "Extracting links …")
             links = extract_links(page.final_url, soup)
@@ -195,7 +204,7 @@ def run_web_scan(
                     report(72 + int(24 * done / max(total, 1)), "links", f"Checking links ({done}/{total}) …")
 
                 report(72, "links", f"Checking up to {options.max_links_to_check} links …")
-                _run_stage(ctx, "Link status", check_links, ctx, links, link_progress)
+                _run_stage(ctx, "Link status", check_links, ctx, links, link_progress, domain="quality")
                 result.metadata["links"] = links.to_dict()
             else:
                 ctx.note_check("Link status", "skipped", "disabled in options")

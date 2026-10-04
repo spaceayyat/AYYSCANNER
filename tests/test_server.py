@@ -111,7 +111,7 @@ class ValidationTests(ServerCase):
     def test_config_endpoint_mirrors_server_limits(self):
         cfg = get(self.client, "/api/config", headers=HOST).get_json()
         self.assertEqual(cfg["limits"]["timeout"]["max"], 60)
-        self.assertEqual({f["key"] for f in cfg["formats"]}, {"html", "pdf", "md", "json", "csv"})
+        self.assertEqual({f["key"] for f in cfg["formats"]}, {"html", "pdf", "md", "json", "csv", "txt"})
 
     def test_unknown_scan_ids_404_as_json(self):
         for path in ("/api/scans/nope", "/api/scans/nope/report"):
@@ -139,7 +139,7 @@ class LifecycleTests(ServerCase):
 
     def test_unreachable_target_is_a_failed_job_with_a_message(self):
         job = self.wait(self.post("/api/scans", {"url": "http://127.0.0.1:1", "authorized": True, "options": FAST}).get_json()["id"])
-        self.assertEqual(job["state"], "failed"); self.assertIn("refused", job["error"])
+        self.assertEqual(job["state"], "failed"); self.assertIn("Unable to connect to the target.", job["error"]); self.assertIn("refused", job["error_info"]["details"])
 
     def test_cancel(self):
         routes = {"/": Route(200, page("".join(f'<a href="/s{i}">s</a>' for i in range(20))))}
@@ -260,8 +260,8 @@ class InstanceAndSaveTests(unittest.TestCase):
             job_id = r.get_json()["id"]
             ServerCase.wait(type("W", (), {"client": client, "fail": self.fail})(), job_id)
             time.sleep(0.3)  # the file is written right after the state flips to done
-            self.assertEqual(len(list(Path(tmp).glob("*.json"))), 1)
-            self.assertEqual(list(Path(tmp).glob(".tmp-*")), [])  # atomic write leaves no temp files
+            self.assertEqual(len(list((Path(tmp) / "scans").glob("*.json"))), 1)
+            self.assertEqual(list((Path(tmp) / "scans").glob(".tmp-*")), [])  # atomic write leaves no temp files
 
             restarted = create_app(settings).test_client()        # a new server process
             get(restarted, "/")
@@ -277,8 +277,9 @@ class InstanceAndSaveTests(unittest.TestCase):
         import tempfile
         from pathlib import Path
         with tempfile.TemporaryDirectory() as tmp:
-            (Path(tmp) / "broken.json").write_text("{not json")
-            (Path(tmp) / "..evil.json").write_text("{}")
+            (Path(tmp) / "scans").mkdir()
+            (Path(tmp) / "scans" / "broken.json").write_text("{not json")
+            (Path(tmp) / "scans" / "..evil.json").write_text("{}")
             client = create_app(Settings(data_dir=Path(tmp))).test_client()
             get(client, "/")
             self.assertEqual(get(client, "/api/scans").get_json()["scans"], [])

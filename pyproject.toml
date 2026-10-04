@@ -30,4 +30,4 @@ version = { attr = "ayyscanner.__version__" }
 include = ["ayyscanner*"]
 
 [tool.setuptools.package-data]
-ayyscanner = ["assets/*", "server/static/*"]
+ayyscanner = ["assets/*", "server/static/*", "server/static/js/*"]

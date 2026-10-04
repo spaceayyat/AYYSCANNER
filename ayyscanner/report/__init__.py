@@ -31,6 +31,7 @@ FORMATS: dict[str, ReportFormat] = {
     f.key: f
     for f in (
         ReportFormat("html", "HTML report", "text/html; charset=utf-8", "html", _text(render_html)),
+        ReportFormat("txt", "Plain text (.txt)", "text/plain; charset=utf-8", "txt", _text(lambda r: render_terminal(r, use_color=False))),
         ReportFormat("pdf", "PDF report", "application/pdf", "pdf", render_pdf),
         ReportFormat("md", "Markdown", "text/markdown; charset=utf-8", "md", _text(render_markdown)),
         ReportFormat("json", "JSON (machine-readable)", "application/json", "json", _text(lambda r: r.to_json())),

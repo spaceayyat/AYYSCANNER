@@ -35,6 +35,9 @@ def render_terminal(result: ScanResult, use_color: bool = True) -> str:
     lines.append("Security findings by severity:")
     lines += [f"  {c(Severity(s), s):<{20 if use_color else 14}} {counts[s]}" for s in SEVERITY_ORDER]
     lines.append("  " + ", ".join(f"{statuses[s]} {s.lower()}" for s in STATUS_ORDER))
+    pc = result.passed_checks()
+    if pc["total"] and result.outcome != "failed":
+        lines.append(f"  Passed: {pc['count']} of {pc['total']} {pc['unit']} ({pc['note']})")
     quality = len(result.sorted_findings("quality"))
     if quality:
         lines.append(f"  (+ {quality} site-quality / SEO note(s), not counted above)")

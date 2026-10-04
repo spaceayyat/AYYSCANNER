@@ -92,7 +92,8 @@ def compute_score(findings: Iterable[Finding], outcome: str = "complete",
                   checks: Optional[Iterable[dict[str, Any]]] = None) -> dict[str, Any]:
     """Return the score and everything that explains it (JSON-serializable)."""
     security = [f for f in findings if f.domain == "security"]
-    coverage = _coverage(checks or [])
+    checks = list(checks or [])
+    coverage = _coverage(checks)
     base: dict[str, Any] = {
         "version": SCORE_VERSION,
         "scale": {"min": 0, "max": 100},
@@ -104,9 +105,14 @@ def compute_score(findings: Iterable[Finding], outcome: str = "complete",
         "bands": [{"min": m, "max": (100 if i == 0 else BANDS[i - 1][0] - 1), "key": k, "label": lbl, "meaning": mean}
                   for i, (m, k, lbl, mean) in enumerate(BANDS)],
     }
-    if outcome == "failed":
+    # A dependency scan whose vulnerability lookup did not run has no data to judge: scoring it would
+    # report a flattering 100 for packages nobody checked.
+    lookup_missing = any(c.get("name") == "OSV.dev vulnerability lookup" and c.get("status") != "ran" for c in (checks or []))
+    if outcome == "failed" or lookup_missing:
+        meaning = ("The scan failed, so there is nothing to score." if outcome == "failed" else
+                   "The OSV.dev vulnerability lookup did not run, so the packages were not checked and there is nothing to score.")
         return {**base, "score": None, "rated": False, "partial": False, "band": "unrated", "label": "Not rated",
-                "meaning": "The scan failed, so there is nothing to score.", "total_penalty": 0.0,
+                "meaning": meaning, "total_penalty": 0.0,
                 "caps_applied": [], "factors": [], "factors_total": 0, "finding_count": 0}
 
     # Group by (rule id, severity, status). The repeat multiplier depends on how many instances of one
@@ -142,3 +148,22 @@ def compute_score(findings: Iterable[Finding], outcome: str = "complete",
         "factors": factors[:MAX_FACTORS], "factors_total": len(factors),
         "finding_count": len(security),
     }
+
+
+def passed_checks(findings: Iterable[Finding], outcome: str, checks: Optional[Iterable[dict[str, Any]]],
+                  metadata: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    """What went right: security check groups that ran and found nothing (web and system scans), or
+    pinned packages with no known vulnerability (dependency scans). Only real results are counted."""
+    metadata = metadata or {}
+    deps = metadata.get("dependency_summary")
+    if isinstance(deps, dict):
+        total = int(deps.get("checked", 0))
+        return {"count": int(deps.get("clean", 0)), "total": total, "unit": "packages", "items": [],
+                "note": ("Pinned packages with no known vulnerability in OSV.dev." if deps.get("osv_checked")
+                         else "The OSV.dev lookup did not run, so no package could be confirmed clean.")}
+    if outcome == "failed":
+        return {"count": 0, "total": 0, "unit": "checks", "items": [], "note": "The scan failed."}
+    ran = [c for c in (checks or []) if c.get("status") == "ran" and c.get("domain", "security") == "security"]
+    passed = [c["name"] for c in ran if c.get("issues", 1) == 0]
+    return {"count": len(passed), "total": len(ran), "unit": "checks", "items": passed,
+            "note": "Check groups that ran and found nothing to report."}

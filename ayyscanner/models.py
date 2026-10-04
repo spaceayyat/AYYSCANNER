@@ -252,6 +252,11 @@ class ScanResult:
 
         return compute_score(self.findings, self.outcome, self.metadata.get("checks"))
 
+    def passed_checks(self) -> dict[str, Any]:
+        from ayyscanner.scoring import passed_checks
+
+        return passed_checks(self.findings, self.outcome, self.metadata.get("checks"), self.metadata)
+
     # -- (de)serialization --------------------------------------------------
 
     def to_dict(self) -> dict[str, Any]:
@@ -278,6 +283,7 @@ class ScanResult:
                 "security": group("security"),
                 "quality": group("quality"),
                 "baseline_breakdown": self.baseline_breakdown(),
+                "passed_checks": self.passed_checks(),
             },
             "score": self.score(),
             "findings": [f.to_dict() for f in self.sorted_findings()],

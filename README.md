@@ -23,9 +23,28 @@ already running it is reused. No second server starts, and no second browser tab
 in one click, without reloading and without interrupting a running scan.
 
 **Nothing to save by hand.** Finished scans are written to disk the moment they end (`~/.ayyscanner/scans`, the last
-25, kept 30 days), so they survive closing the tab, reloading or restarting the server, and appear under **Recent
-scans** on the Home screen. The target URL and your scan options are remembered as you type. Reports are still
-exported on demand from the results screen. The "I am authorized" box is deliberately never remembered.
+50, kept 30 days), so they survive closing the tab, reloading or restarting the server, and appear under **Recent
+scans** on the Home screen. Settings are saved the moment you change them (`~/.ayyscanner/settings.json`). The target
+URL, project folder and scan options are remembered as you type. Every scan asks for a confirmation before it starts,
+which is deliberately never remembered.
+
+## The app
+
+| Screen | What it does |
+|---|---|
+| **Home** | **Quick scan** (type a website, one click, nothing to configure) and three cards: **Website scan** (HTTP, HTTPS, localhost, LAN), **System scan** (this computer; the card lists exactly what is checked) and **Project scan** (dependencies via OSV.dev). **Recent scans** shows target, type, date, score and finding count; click one to reopen it, delete one, or clear the history. |
+| **Results** | Security score (0-100) at the top, summary cards (Critical, High, Medium, Low, Informational, Passed checks), then findings with severity, explanation, why it matters, evidence, fix and affected URL/file. Search, filter by severity or category, sort by severity or name, hide informational, compact or detailed view. **Copy summary / Copy score / Copy finding** buttons. **Export** as HTML, PDF, TXT, Markdown, JSON or CSV. |
+| **Progress** | Only steps that really happen are listed (connect, headers, page content, ... or the five system checks, or reading files / OSV.dev lookup). You can leave the page; the scan keeps running. |
+| **Settings** | Theme (remembered), interface size, scan time limit, request timeout, auto-save history, show informational, sort order, compact/detailed results, privacy explanation, clear history, create desktop shortcut, about. Saved automatically and kept across restarts. |
+| **Help** | Plain-language guide: what can and cannot be scanned, limits (one page, no JavaScript, no login), system and dependency scanning, why OSV.dev needs internet, what to do about errors. |
+
+Errors are written in plain language ("Unable to connect to the target.", "Invalid URL.", "OSV.dev could not be reached.
+Dependency vulnerability results may be unavailable.", "Permission is required to perform this system check.") with the
+original technical text in an expandable **Technical details** section.
+
+**Project scans** read `requirements.txt`, `package-lock.json` and `pyproject.toml` in the folder you type. A project scan
+whose OSV.dev lookup did not run is shown as **Not rated** rather than a misleading 100. **Passed checks** means check
+groups that ran and found nothing (website/system scans) or pinned packages with no known vulnerability (project scans).
 
 | Platform | Double-click / run |
 |---|---|
@@ -57,7 +76,7 @@ python -m ayyscanner               # or: pip install . && ayyscanner
 ## Requirements
 
 - **Python 3.10 or newer.** Developed and tested on Python 3.12 (Linux); 3.10 and 3.11 have not been run.
-- A modern browser: Chrome/Edge 123+, Firefox 120+ or Safari 17.5+ (the theme system uses CSS `light-dark()`).
+- A modern browser: Chrome/Edge 123+, Firefox 126+ or Safari 17.5+ (the theme system uses CSS `light-dark()`; the interface-size setting uses CSS `zoom`).
 - Dependencies (installed automatically): Flask, Requests, Beautiful Soup, ReportLab, and optionally psutil
   (only for `system` scans). No Node.js, no database, no build step.
 
@@ -119,8 +138,8 @@ for: 100 does not mean a site is secure. The rules live in `ayyscanner/scoring.p
 
 ### Exporting
 
-From the results screen choose **Export report**: HTML (self-contained, light/dark, printable), PDF, Markdown,
-JSON (machine-readable) or CSV (findings table). Results are saved automatically (see above), so you can come back
+From the results screen choose **Export**: HTML (self-contained, light/dark, printable, with the score and branding), PDF,
+plain text (.txt), Markdown, JSON (machine-readable) or CSV (findings table). Results are saved automatically (see above), so you can come back
 and export later.
 
 ## Configuration
@@ -136,11 +155,11 @@ All optional. Copy `.env.example` to `.env`, or set real environment variables (
 | `AYYSCANNER_MAX_CONCURRENT_SCANS` | `2` | Simultaneous scans (1-10) |
 | `AYYSCANNER_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 | `AYYSCANNER_DEBUG` | `0` | Include exception details in API errors (developers only) |
-| `AYYSCANNER_DATA_DIR` | `~/.ayyscanner/scans` | Where finished scans are saved. Set to `off` to keep scans in memory only. |
+| `AYYSCANNER_DATA_DIR` | `~/.ayyscanner` | Folder for saved scans (`scans/`) and `settings.json`. Set to `off` to write nothing to disk. |
 | `AYYSCANNER_ALLOW_REMOTE`, `AYYSCANNER_ALLOWED_HOSTS` | unset | Only for deliberately exposing the UI; both required |
 
-Scan options (timeout, rate limit, which checks run, link limits, user agent) are under **Scan options** in the UI and
-are remembered in your browser. Behind a corporate proxy, set `HTTP_PROXY` / `HTTPS_PROXY`.
+Scan options (rate limit, which checks run, link limits, user agent) are under **Scan options** on the Website scan card and
+are remembered. The request timeout and scan time limit are in **Settings**. Behind a corporate proxy, set `HTTP_PROXY` / `HTTPS_PROXY`.
 
 ## Command line
 
@@ -213,12 +232,13 @@ with a fake session).
 ayyscanner/
   web_scan/      the scan engine: rules.py (every finding's text), security.py, probes.py, seo.py, links.py,
                  http.py (shared client: limits, redirects, SSRF guard), orchestrator in __init__.py
-  report/        one ScanResult -> html, pdf, md, json, csv, terminal
-  server/        Flask app, background jobs, static UI (index.html, app.css, app.js)
+  report/        one ScanResult -> html, pdf, txt, md, json, csv, terminal
+  server/        Flask app, background jobs (website/system/project), history store, static UI (index.html, app.css, js/*.js)
   assets/        tokens.css (the single theme/design-token file), logo.svg, launcher icons (.ico/.png/.icns)
   scanners/      system and dependency scanners (CLI)
   models.py      Finding / ScanResult     cli.py      command line     settings.py   environment config
   scoring.py     the 0-100 security score  shortcut.py first-run desktop shortcut (standard library only)
+  userprefs.py   Settings page storage     errors.py   plain-language error messages     instance.py   reuse a running instance
 ```
 
 The launcher icons are generated from the logo geometry by `python tools/make_icons.py` (needs Pillow; the generated

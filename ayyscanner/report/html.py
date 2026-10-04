@@ -235,7 +235,10 @@ def _summary(result: ScanResult) -> str:
         headline = "<p><strong>No security findings were reported by the checks that ran.</strong> This does not prove the site is secure; see scope and limitations.</p>"
     else:
         headline = f"<p><strong>{total}</strong> security finding(s) reported.</p>" if result.outcome != "failed" else ""
-    return f'<div class="tiles">{tiles}</div>{bar}<ul class="statuses">{status_list}</ul>{headline}{obs_html}{q_html}'
+    pc = result.passed_checks()
+    passed = (f'<p><strong>{pc["count"]}</strong> of {pc["total"]} {pc["unit"]} passed. <span class="muted">{esc(pc["note"])}</span></p>'
+              if pc["total"] and result.outcome != "failed" else "")
+    return f'<div class="tiles">{tiles}</div>{bar}<ul class="statuses">{status_list}</ul>{headline}{passed}{obs_html}{q_html}'
 
 
 def _kv_table(rows: list[tuple[str, Any]]) -> str:

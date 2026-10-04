@@ -20,7 +20,7 @@ _ID = re.compile(r"^[A-Za-z0-9_-]{4,64}$")
 
 
 class ScanStore:
-    def __init__(self, directory: Path, keep: int = 25) -> None:
+    def __init__(self, directory: Path, keep: int = 50) -> None:
         self.directory = Path(directory)
         self.keep = keep
 

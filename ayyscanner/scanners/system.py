@@ -12,7 +12,7 @@ from __future__ import annotations
 import platform
 import stat
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from ayyscanner.models import Confidence, Finding, ScanResult, Severity
 import logging
@@ -65,6 +65,10 @@ def _finding(
         references=references or [],
         target=platform.node(),
     )
+
+
+class CheckSkipped(Exception):
+    """Raised by a check that could not run on this machine; the reason is shown in the report."""
 
 
 def check_os_version(result: ScanResult) -> None:
@@ -182,7 +186,7 @@ def check_file_permissions(result: ScanResult) -> None:
 def check_ssh_hardening(result: ScanResult) -> None:
     sshd_config = Path("/etc/ssh/sshd_config")
     if not sshd_config.exists():
-        return
+        raise CheckSkipped("no SSH server configuration found on this machine")
     try:
         content = sshd_config.read_text(errors="ignore")
     except OSError as exc:
@@ -246,6 +250,8 @@ def check_firewall_status(result: ScanResult) -> None:
     elif system == "Windows":
         status = "check Windows Defender Firewall settings manually"
 
+    if not status:
+        raise CheckSkipped(f"no firewall check is available for {system or 'this operating system'}")
     if status:
         result.add(
             _finding(
@@ -261,14 +267,46 @@ def check_firewall_status(result: ScanResult) -> None:
         )
 
 
-def run_system_scan() -> ScanResult:
+SYSTEM_CHECKS: list[tuple[str, str, Callable[[ScanResult], None]]] = [
+    ("Operating system", "Identifying the operating system …", check_os_version),
+    ("Listening network ports", "Checking which network ports are open …", check_listening_ports),
+    ("Sensitive file permissions", "Checking permissions of sensitive files …", check_file_permissions),
+    ("SSH server hardening", "Checking SSH server settings …", check_ssh_hardening),
+    ("Firewall presence", "Looking for a firewall …", check_firewall_status),
+]
+
+
+def run_system_scan(progress_cb: Optional[Callable[[int, str, str], None]] = None) -> ScanResult:
+    """Run every local check. Each one is recorded as ran / skipped / failed so the report never
+    implies something was checked when it was not. A permission problem skips one check, not the scan."""
     logger.info("Starting system scan")
     result = ScanResult(scan_type="system", target=platform.node())
-    check_os_version(result)
-    check_listening_ports(result)
-    check_file_permissions(result)
-    check_ssh_hardening(result)
-    check_firewall_status(result)
+    checks: list[dict] = []
+    incomplete_checks: list[str] = []  # checks that could not finish (not merely 'not applicable here')
+    for i, (name, message, fn) in enumerate(SYSTEM_CHECKS):
+        if progress_cb:
+            progress_cb(int(100 * i / len(SYSTEM_CHECKS)), f"system{i}", message)
+        errors_before, findings_before = len(result.errors), len(result.findings)
+        try:
+            fn(result)
+        except CheckSkipped as exc:
+            checks.append({"name": name, "status": "skipped", "note": str(exc), "domain": "security", "issues": 0})
+            continue
+        except Exception as exc:  # noqa: BLE001 - one broken check must not stop the others
+            logger.exception("System check %r failed", name)
+            incomplete_checks.append(name)
+            result.errors.append(f"The '{name}' check failed unexpectedly ({type(exc).__name__}).")
+            checks.append({"name": name, "status": "failed", "note": type(exc).__name__, "domain": "security", "issues": 0})
+            continue
+        produced = sum(1 for f in result.findings[findings_before:] if f.severity != Severity.INFO)
+        if len(result.errors) > errors_before:  # the check explained why it could not finish
+            incomplete_checks.append(name)
+            checks.append({"name": name, "status": "skipped", "note": result.errors[-1], "domain": "security", "issues": produced})
+        else:
+            checks.append({"name": name, "status": "ran", "note": "", "domain": "security", "issues": produced})
+    result.metadata["checks"] = checks
+    if incomplete_checks:
+        result.outcome = "partial"
     result.mark_finished()
     logger.info("System scan complete: %d findings", len(result.findings))
     return result

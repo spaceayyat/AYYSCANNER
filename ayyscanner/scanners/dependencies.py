@@ -19,7 +19,7 @@ import math
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import requests
 
@@ -228,8 +228,14 @@ def _finding(fid: str, title: str, severity: Severity, confidence: Confidence, d
 
 
 def run_dependency_scan(project_dir: str, timeout: float = 10.0, rate_limit: float = 5.0, offline: bool = False,
-                        session: Optional[requests.Session] = None) -> ScanResult:
+                        session: Optional[requests.Session] = None,
+                        progress_cb: Optional[Callable[[int, str, str], None]] = None) -> ScanResult:
+    def report(percent: int, stage: str, message: str) -> None:
+        if progress_cb:
+            progress_cb(percent, stage, message)
+
     logger.info("Starting dependency scan for %s", project_dir)
+    report(5, "manifests", "Reading dependency files …")
     path = Path(project_dir)
     result = ScanResult(scan_type="dependencies", target=str(path))
 
@@ -249,6 +255,11 @@ def run_dependency_scan(project_dir: str, timeout: float = 10.0, rate_limit: flo
 
     deps = collect_dependencies(path)
     result.metadata.update(manifests_found=[str(m) for m in manifests], dependencies_found=len(deps))
+    pinned = [d for d in deps if d.version]
+    result.metadata["dependency_summary"] = {"total": len(deps), "checked": len(pinned), "vulnerable": 0,
+                                             "clean": 0, "osv_checked": False}
+    checks = [{"name": "Dependency files read", "status": "ran", "note": f"{len(manifests)} file(s), {len(deps)} package(s)", "domain": "security", "issues": 0}]
+    result.metadata["checks"] = checks
 
     for dep in (d for d in deps if not d.version):
         result.add(_finding(
@@ -259,20 +270,27 @@ def run_dependency_scan(project_dir: str, timeout: float = 10.0, rate_limit: flo
             detection="Manifest parsing found no exact version pin (==)."))
 
     if offline:
+        checks.append({"name": "OSV.dev vulnerability lookup", "status": "skipped", "note": "offline mode", "domain": "security", "issues": 0})
         result.errors.append("Offline mode: the OSV.dev vulnerability lookup was skipped, so known vulnerabilities were NOT checked.")
         result.outcome = OUTCOME_PARTIAL
         return finish()
 
     session = session or requests.Session()
     limiter = RateLimiter(rate_limit)
+    report(25, "osv", f"Checking {len(pinned)} package(s) against OSV.dev …")
     try:
         matches = query_osv(deps, session, limiter, timeout)
     except (requests.RequestException, ValueError) as exc:
         logger.warning("OSV.dev query failed: %s", exc)
-        result.errors.append(f"Could not reach OSV.dev ({type(exc).__name__}), so known vulnerabilities were NOT checked. Check your internet connection and try again.")
+        checks.append({"name": "OSV.dev vulnerability lookup", "status": "failed", "note": type(exc).__name__, "domain": "security", "issues": 0})
+        result.errors.append(f"OSV.dev could not be reached ({type(exc).__name__}). Dependency vulnerability results may be unavailable: known vulnerabilities were NOT checked. Check your internet connection and try again.")
         result.outcome = OUTCOME_PARTIAL
         return finish()
 
+    report(60, "details", "Reading vulnerability details …")
+    vulnerable = sum(1 for ids in matches.values() if ids)
+    result.metadata["dependency_summary"].update(osv_checked=True, vulnerable=vulnerable, clean=max(len(pinned) - vulnerable, 0))
+    checks.append({"name": "OSV.dev vulnerability lookup", "status": "ran", "note": "", "domain": "security", "issues": vulnerable})
     details_cache: dict[str, Optional[dict[str, Any]]] = {}
     for key, ids in matches.items():
         name, version = key.rsplit("@", 1)
@@ -290,5 +308,6 @@ def run_dependency_scan(project_dir: str, timeout: float = 10.0, rate_limit: flo
                 references=[OSV_VULN_PAGE.format(id=vuln_id)], status=FindingStatus.CONFIRMED,
                 detection="Exact name and pinned version were looked up in the OSV.dev vulnerability database."))
 
+    report(95, "score", "Calculating the score …")
     logger.info("Dependency scan complete: %d findings", len(result.findings))
     return finish()

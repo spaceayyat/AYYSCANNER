@@ -17,10 +17,12 @@ from __future__ import annotations
 
 import hmac
 import logging
+import platform
 import secrets
 import threading
 import time
 import webbrowser
+from pathlib import Path
 from typing import Any, Optional
 
 from flask import Flask, Response, abort, jsonify, make_response, request, send_from_directory
@@ -32,8 +34,9 @@ from ayyscanner.instance import reuse_running
 from ayyscanner.models import ScanResult
 from ayyscanner.report import FORMATS, filename_for
 from ayyscanner.report.common import ASSETS
-from ayyscanner.server.jobs import JobManager, TooManyScans
+from ayyscanner.server.jobs import KINDS, JobManager, TooManyScans
 from ayyscanner.server.store import ScanStore
+from ayyscanner.userprefs import DEFAULTS as PREF_DEFAULTS, PrefsError, PrefsStore
 from ayyscanner.settings import Settings
 from ayyscanner.web_scan.options import _NUMERIC_LIMITS, OptionsError, ScanOptions
 from ayyscanner.web_scan.urls import InvalidUrlError, parse_target
@@ -67,8 +70,9 @@ def create_app(settings: Optional[Settings] = None, manager: Optional[JobManager
     app = Flask(__name__, static_folder="static", static_url_path="/static")
     app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
     session_secret = secrets.token_urlsafe(32)
-    store = ScanStore(settings.data_dir) if settings.data_dir else None
-    jobs = manager or JobManager(settings.max_concurrent_scans, store)
+    store = ScanStore(settings.data_dir / "scans") if settings.data_dir else None
+    prefs = PrefsStore(settings.data_dir / "settings.json" if settings.data_dir else None)
+    jobs = manager or JobManager(settings.max_concurrent_scans, store, prefs)
     allowed_hosts = settings.allowed_hosts
     open_tabs: dict[str, float] = {}  # browser tab id -> last heartbeat; lets a second launch see the UI is already open
     tabs_lock = threading.Lock()
@@ -84,11 +88,11 @@ def create_app(settings: Optional[Settings] = None, manager: Optional[JobManager
         supplied = request.cookies.get(COOKIE_NAME, "")
         if not hmac.compare_digest(supplied.encode(), session_secret.encode()):
             return _error(403, "no_session", "Missing or invalid session. Reload the AYYSCANNER page and try again.")
-        if request.method == "POST":
+        if request.method not in ("GET", "HEAD", "OPTIONS"):
             origin = request.headers.get("Origin")
             if origin and origin.rstrip("/") != request.host_url.rstrip("/"):
                 return _error(403, "bad_origin", "Cross-origin requests are not allowed.")
-            if not request.is_json:
+            if request.method in ("POST", "PUT") and not request.is_json:
                 return _error(415, "json_required", "Send the request body as JSON (Content-Type: application/json).")
         return None
 
@@ -166,32 +170,66 @@ def create_app(settings: Optional[Settings] = None, manager: Optional[JobManager
         return jsonify({
             "version": __version__,
             "defaults": ScanOptions().to_dict(),
+            "settings": prefs.get(),
+            "setting_defaults": PREF_DEFAULTS,
+            "history_on_disk": store is not None,
+            "data_dir": str(settings.data_dir) if settings.data_dir else None,
             "limits": {k: {"min": lo, "max": hi, "label": label} for k, (lo, hi, label) in _NUMERIC_LIMITS.items()},
             "formats": [{"key": f.key, "label": f.label} for f in FORMATS.values()],
         })
+
+    def _project_dir(raw: Any) -> Path:
+        """Validate a folder typed by the user. It is only read for dependency manifests."""
+        if not isinstance(raw, str) or not raw.strip():
+            raise ValueError("Enter the folder of the project you want to scan.")
+        if len(raw) > 1024 or "\x00" in raw:
+            raise ValueError("That folder path is not valid.")
+        path = Path(raw.strip()).expanduser()
+        try:
+            path = path.resolve(strict=True)
+        except (OSError, RuntimeError):
+            raise ValueError("That folder was not found on this computer. Check the path.") from None
+        if not path.is_dir():
+            raise ValueError("That path is a file. Choose the project's folder.")
+        return path
 
     @app.post("/api/scans")
     def start_scan() -> Response:
         body = request.get_json(silent=True)
         if not isinstance(body, dict):
             return _error(400, "invalid_body", "The request body must be a JSON object.")
+        kind = body.get("kind", "web")
+        if kind not in KINDS:
+            return _error(400, "invalid_kind", "Unknown scan type. Choose website, system or project.")
         if body.get("authorized") is not True:
-            return _error(400, "authorization_required",
-                          "Confirm that you own this target or have permission to test it before scanning.")
+            what = {"web": "Confirm that you own this target or have permission to test it before scanning.",
+                    "system": "Confirm that you want to check this computer before scanning.",
+                    "project": "Confirm that you want to read this project's dependency files before scanning."}[kind]
+            return _error(400, "authorization_required", what)
+        options = None
+        if kind == "web":
+            try:
+                parse_target(body.get("url") if isinstance(body.get("url"), str) else "")  # validate now for a fast, clear error
+            except InvalidUrlError as exc:
+                return _error(400, "invalid_url", str(exc))
+            try:
+                options = ScanOptions.from_dict(body.get("options") if isinstance(body.get("options"), dict) else {})
+            except OptionsError as exc:
+                return _error(400, "invalid_options", "Some scan options are invalid: " + "; ".join(exc.fields.values()), fields=exc.fields)
+            target = body["url"].strip()  # raw input: the engine needs to know if no scheme was typed
+        elif kind == "project":
+            try:
+                target = str(_project_dir(body.get("directory")))
+            except ValueError as exc:
+                return _error(400, "invalid_directory", str(exc))
+        else:
+            target = platform.node() or "this computer"
         try:
-            parse_target(body.get("url") if isinstance(body.get("url"), str) else "")  # validate now for a fast, clear error
-        except InvalidUrlError as exc:
-            return _error(400, "invalid_url", str(exc))
-        try:
-            options = ScanOptions.from_dict(body.get("options") if isinstance(body.get("options"), dict) else {})
-        except OptionsError as exc:
-            return _error(400, "invalid_options", "Some scan options are invalid: " + "; ".join(exc.fields.values()), fields=exc.fields)
-        try:
-            job = jobs.submit(body["url"].strip(), options)  # raw input: the engine needs to know if no scheme was typed
+            job = jobs.submit(target, options, kind=kind)
         except TooManyScans as exc:
             return _error(429, "busy", str(exc))
-        log.info("Scan %s started for %s", job.id, job.url)
-        response = jsonify({"id": job.id, "state": job.state})
+        log.info("%s scan %s started for %s", kind, job.id, job.url)
+        response = jsonify({"id": job.id, "state": job.state, "kind": kind})
         response.status_code = 202
         return response
 
@@ -200,6 +238,47 @@ def create_app(settings: Optional[Settings] = None, manager: Optional[JobManager
         if job is None:
             abort(404, description="Unknown scan. It may have expired when the server restarted.")
         return job
+
+    @app.delete("/api/scans/<job_id>")
+    def delete_scan(job_id: str) -> Response:
+        job = _job_or_404(job_id)
+        if not job.is_finished:
+            return _error(409, "still_running", "That scan is still running. Stop it first, then delete it.")
+        jobs.delete(job_id)
+        return jsonify({"ok": True})
+
+    @app.delete("/api/scans")
+    def clear_scans() -> Response:
+        return jsonify({"ok": True, "removed": jobs.clear()})
+
+    @app.get("/api/settings")
+    def get_settings() -> Response:
+        return jsonify({"settings": prefs.get(), "defaults": PREF_DEFAULTS})
+
+    @app.put("/api/settings")
+    def put_settings() -> Response:
+        body = request.get_json(silent=True)
+        try:
+            return jsonify({"settings": prefs.update(body)})
+        except PrefsError as exc:
+            return _error(400, "invalid_settings", "Some settings are invalid: " + "; ".join(exc.fields.values()), fields=exc.fields)
+
+    @app.post("/api/settings/reset")
+    def reset_settings() -> Response:
+        return jsonify({"settings": prefs.reset()})
+
+    @app.post("/api/shortcut")
+    def make_shortcut() -> Response:
+        """Create (or repair) the desktop shortcut. Same code as `python run.py --create-shortcut`."""
+        from ayyscanner import shortcut
+
+        try:
+            outcome = shortcut.ensure_shortcut(force=True)
+        except Exception:  # noqa: BLE001 - never a stack trace in the UI
+            log.exception("Creating the desktop shortcut failed")
+            return _error(500, "shortcut_failed", "The shortcut could not be created. Details were written to the server log.")
+        ok = outcome.status in (shortcut.CREATED, shortcut.UPDATED, shortcut.EXISTS)
+        return jsonify({"ok": ok, "message": shortcut.describe(outcome) or outcome.message or "Nothing to do."})
 
     @app.get("/api/scans/<job_id>")
     def scan_status(job_id: str) -> Response:
@@ -264,7 +343,7 @@ def run_server(settings: Settings) -> int:
         return 1
     print(f"AYYSCANNER {__version__} is running at {settings.url}\nPress Ctrl+C to stop.")
     if settings.data_dir:
-        print(f"Finished scans are saved automatically in {settings.data_dir}")
+        print(f"Scan history and settings are stored in {settings.data_dir}")
     if settings.open_browser:
         threading.Timer(0.6, lambda: webbrowser.open(settings.url)).start()
     try:

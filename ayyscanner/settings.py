@@ -38,11 +38,12 @@ def load_dotenv(path: Path, environ: Optional[dict[str, str]] = None) -> None:
 
 
 def _data_dir(env: Mapping[str, str]) -> Optional[Path]:
-    """AYYSCANNER_DATA_DIR, or ~/.ayyscanner/scans. Set AYYSCANNER_DATA_DIR=off to disable saving."""
+    """AYYSCANNER_DATA_DIR, or ~/.ayyscanner. Scan history goes in its `scans` subfolder, settings in settings.json.
+    Set AYYSCANNER_DATA_DIR=off to write nothing to disk."""
     raw = env.get("AYYSCANNER_DATA_DIR", "").strip()
     if raw.lower() in {"off", "none", "0", "false"}:
         return None
-    return Path(raw).expanduser() if raw else Path.home() / ".ayyscanner" / "scans"
+    return Path(raw).expanduser() if raw else Path.home() / ".ayyscanner"
 
 
 def _truthy(value: str) -> bool:
@@ -59,7 +60,7 @@ class Settings:
     extra_allowed_hosts: tuple[str, ...] = ()
     log_level: str = "INFO"
     debug: bool = False
-    data_dir: Optional[Path] = None  # where finished scans are saved; None = keep in memory only
+    data_dir: Optional[Path] = None  # folder for saved scans (data_dir/scans) and settings.json; None = nothing is written to disk
 
     @property
     def allowed_hosts(self) -> frozenset[str]:
