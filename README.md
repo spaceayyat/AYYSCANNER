@@ -1,32 +1,103 @@
 # AYYSCANNER
 
-A web security scanner with a local browser UI, a command line, and detailed reports. It inspects one page
-passively, tells you what it actually observed, and separates **confirmed** problems from **potential** ones.
+**A friendly, defensive security scanner for websites, your own computer, and your software projects, with a clear 0-100 score and a plain-English fix for every problem.**
+
+Point it at a website (including `localhost` and devices on your network), at this computer, or at a project folder.
+It tells you what is wrong, how serious it is, how sure it is, and exactly how to fix it. It runs entirely on your
+machine, in your browser, with nothing to sign up for and no data sent anywhere.
 
 **By Abdellah Ayyat** · Instagram: [@spaceayyat](https://instagram.com/spaceayyat)
 
-> **Only scan systems you own or have explicit permission to test.** Scans send real requests to the target.
+> **Only scan systems you own or have explicit permission to test.** Website scans send real requests to the target.
 
-## Quick start
+## Run it in 3 steps
+
+You need **Python 3.10 or newer** and a web browser. Nothing else: no Node.js, no database, no Docker.
+
+**1. Install Python** (skip if you have it; check with `python --version` or `python3 --version`)
+
+| System | How |
+|---|---|
+| Windows | Download from [python.org/downloads](https://www.python.org/downloads/) and **tick "Add python.exe to PATH"** in the installer. |
+| macOS | Download from [python.org/downloads](https://www.python.org/downloads/), or run `brew install python`. |
+| Linux | Usually installed. On Debian/Ubuntu also run `sudo apt install python3-venv`. |
+
+**2. Get AYYSCANNER**: either click the green **Code** button on GitHub, then **Download ZIP**, and unzip it (if the repository is private, be signed in to GitHub with access); or:
 
 ```bash
 git clone https://github.com/spaceayyat/AYYSCANNER.git
 cd AYYSCANNER
-python run.py
 ```
 
-Your browser opens at <http://127.0.0.1:8765/>. Enter a URL, confirm you are authorized to test it, press **Start scan**.
+**3. Start it**
 
-**Home / Run is one action.** Run the launcher again (or double-click it again) whenever you like: if AYYSCANNER is
-already running it is reused. No second server starts, and no second browser tab opens if the UI is already open
-(it only opens one when none is showing it). In the app, the **Home** button (top left) returns to the start screen
-in one click, without reloading and without interrupting a running scan.
+| System | Start |
+|---|---|
+| Windows | Double-click **`run_windows.bat`** |
+| macOS / Linux | In a terminal inside the folder: **`./run_linux.sh`** (if it says "permission denied": `chmod +x run_linux.sh`) |
+| Any system | `python run.py` (or `python3 run.py`) |
 
-**Nothing to save by hand.** Finished scans are written to disk the moment they end (`~/.ayyscanner/scans`, the last
-50, kept 30 days), so they survive closing the tab, reloading or restarting the server, and appear under **Recent
-scans** on the Home screen. Settings are saved the moment you change them (`~/.ayyscanner/settings.json`). The target
-URL, project folder and scan options are remembered as you type. Every scan asks for a confirmation before it starts,
-which is deliberately never remembered.
+The first start takes a minute: it installs the few libraries it needs into a private `.venv` folder (internet needed once).
+Then **your browser opens by itself** at <http://127.0.0.1:8765/>. If it doesn't, open that address manually.
+
+**Every time after that:** double-click the **AYYSCANNER icon that appeared on your Desktop** on the first run. If it is
+already running, clicking it again just brings it up, with no second copy and no extra tabs. To stop AYYSCANNER, close its
+terminal window (or press `Ctrl+C` in it).
+
+**Your first scan (about 20 seconds):** type a website into the **Quick scan** box (for example `example.com`, or
+`http://localhost:3000` for a site on your own machine), press **Quick scan**, confirm you are allowed to test it, and read your score.
+
+Something not working? See [Common problems](#common-problems).
+
+## What it can do
+
+- **Website scans** over HTTP and HTTPS, including `localhost` and LAN addresses: HTTPS and TLS certificate, security headers
+  (CSP, HSTS, clickjacking, `nosniff`, Referrer and Permissions Policy), cookie flags, CORS mistakes, mixed content, forms that
+  post over HTTP, third-party scripts without Subresource Integrity, leaked server versions and error messages, and files that
+  must never be public (`/.git`, `/.env`, `phpinfo()`). SEO and broken-link checks are reported separately and never touch the security score.
+- **System scans** of the computer it runs on: operating system, open network ports (flagging risky ones such as Telnet, RDP,
+  VNC, exposed databases), permissions on sensitive files, SSH server settings and firewall presence. Read-only.
+- **Project scans** of `requirements.txt`, `package-lock.json` and `pyproject.toml`: every pinned dependency is checked against the
+  public **OSV.dev** vulnerability database, with severity taken from the advisory's own CVSS data.
+- **One 0-100 security score** per scan, with the exact list of what lowered it, and a history of past scans you can reopen.
+- **Reports you can share:** self-contained HTML, PDF, plain text, Markdown, JSON and CSV, plus one-click copy of a summary, a
+  score or a single finding.
+- **A command line** for scripts and CI, with exit codes and pass/fail baselines (see [Command line](#command-line)).
+
+## Why it is different
+
+Most security scanners are either heavyweight tools built for specialists, or one-click tools that hand you a long list with no
+indication of what is real. AYYSCANNER is built to be **safe to run, honest about what it knows, and understandable by someone who
+is not a security expert**.
+
+| | What AYYSCANNER does | Why that matters |
+|---|---|---|
+| **Honest results** | Every finding is **Confirmed** (directly observed), **Potential** (hints, verify manually) or **Informational**, with a separate confidence level. Every report lists which checks **ran, were skipped or failed**. | You can tell real problems from guesses, and a clean result never overstates what was checked. |
+| **A score you can audit** | The 0-100 score is a fixed formula over the findings: same findings, same score. It shows exactly which findings cost how many points. A confirmed Critical or High problem caps the score. | No black box. And many small wins cannot hide one big hole. |
+| **No flattering answers** | If the vulnerability lookup could not run (offline, OSV.dev down), a project scan is **Not rated**, not a reassuring 100. Failed scans are never "clean". | A wrong "all clear" is worse than no answer. |
+| **Safe by design** | Passive and read-only: one page, plain requests, no attack payloads, no logins, no form submission, nothing exploited or changed. | You can run it against your own production site without worrying it will break something. |
+| **Three scanners, one app** | Website, this computer and project dependencies in one interface, one score model, one history. | One tool and one report format instead of three. |
+| **Private by default** | Runs on `127.0.0.1`. No account, no telemetry, no cloud. Scan history and settings are plain files on your disk. Cookie and `.env` **values are never recorded**. Only a website scan (to the target) and a project scan (package names and versions to OSV.dev) ever go online. | Your results about your own systems stay yours. |
+| **A hardened scanner** | The local web UI defends itself: localhost only, allow-listed `Host` headers (DNS-rebinding defence), session cookie plus same-origin checks, strict CSP, an SSRF guard so a hostile page cannot make it probe your internal network, and size and time limits. | A tool that can launch scans from your machine must not become an attack path. |
+| **Easy to run** | Double-click to start, a Desktop icon, and no Node, Docker or database. A running copy is reused instead of duplicated. | Minutes from download to first result. |
+| **Built for teams too** | `--passive-only`, JSON output, **exit codes** (`2` = High/Critical found) and **baseline rules** in a JSON file for pass/fail policies in CI. | The same tool works for a quick look and for an automated pipeline. |
+| **Tested** | 224 automated tests that run real scans against local test servers, with no internet needed. | Changes do not silently break results. |
+
+### An honest comparison: when to use something else
+
+AYYSCANNER is deliberately **not** a replacement for full penetration-testing suites or enterprise vulnerability platforms.
+Those tools (for example proxy-based testers or commercial scanners) do things AYYSCANNER intentionally does not:
+
+| You need... | Use |
+|---|---|
+| Crawling a whole site, or testing pages behind a login | A full web application scanner or proxy-based tester |
+| Active testing for injection, XSS and similar flaws, or JavaScript-rendered pages | A dynamic (DAST) scanner or a manual penetration test |
+| Network-wide vulnerability and compliance scanning across many hosts | An enterprise vulnerability management platform |
+| A formal audit or certification | A qualified human assessor |
+
+What AYYSCANNER is best at: a **fast, safe, explainable first look** (and a regular health check) at the things that are most
+often wrong and cheapest to fix, with results a non-specialist can act on. A high score means *the checks it ran found little*,
+not that a site is secure, and every report says so.
 
 ## The app
 
@@ -46,14 +117,18 @@ original technical text in an expandable **Technical details** section.
 whose OSV.dev lookup did not run is shown as **Not rated** rather than a misleading 100. **Passed checks** means check
 groups that ran and found nothing (website/system scans) or pinned packages with no known vulnerability (project scans).
 
-| Platform | Double-click / run |
-|---|---|
-| Windows | `run_windows.bat` |
-| Linux / macOS | `./run_linux.sh` |
-| Anywhere | `python run.py` |
+**Home / Run is one action.** Run the launcher again (or double-click it again) whenever you like: if AYYSCANNER is
+already running it is reused. No second server starts, and no second browser tab opens if the UI is already open
+(it only opens one when none is showing it). In the app, the **Home** button (top left) returns to the start screen
+in one click, without reloading and without interrupting a running scan.
 
-The first run creates a private `.venv` folder and installs the dependencies (internet required once). Later runs
-start immediately.
+**Nothing to save by hand.** Finished scans are written to disk the moment they end (`~/.ayyscanner/scans`, the last
+50, kept 30 days), so they survive closing the tab, reloading or restarting the server, and appear under **Recent
+scans** on the Home screen. Settings are saved the moment you change them (`~/.ayyscanner/settings.json`). The target
+URL, project folder and scan options are remembered as you type. Every scan asks for a confirmation before it starts,
+which is deliberately never remembered.
+
+## Optional setup
 
 **Desktop shortcut.** The first time you start the app, AYYSCANNER puts a shortcut with its logo on your Desktop, so
 from then on you can launch it without opening the project folder (Windows: `AYYSCANNER.lnk`; Linux: `AYYSCANNER.desktop`
@@ -64,6 +139,7 @@ removes it. No Desktop folder (a server, a container) means nothing is created. 
 it off. The shortcut opens a terminal window that shows the server log; close it or press Ctrl+C there to stop AYYSCANNER. If the dependencies are already importable (your own environment, CI, a container),
 `run.py` uses them as they are and creates nothing.
 
+
 **Manual install**, if you prefer to manage the environment yourself:
 
 ```bash
@@ -72,6 +148,7 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 python -m ayyscanner               # or: pip install . && ayyscanner
 ```
+
 
 ## Requirements
 
